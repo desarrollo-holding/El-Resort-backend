@@ -1,6 +1,52 @@
 import type { Request, Response } from "express";
 import Extra from "../models/Extras";
 import { ExtrasService } from "../services/extras.service";
+import { SupabaseStorageService } from "../services/supabaseStorage.service";
+
+const extractSupabaseFileIdFromPublicUrl = (value: string): string | null => {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  try {
+    const parsed = new URL(value);
+    const marker = "/storage/v1/object/public/";
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex < 0) return null;
+
+    const suffix = parsed.pathname.slice(markerIndex + marker.length);
+    const firstSlash = suffix.indexOf("/");
+    if (firstSlash < 0) return null;
+
+    const fileId = decodeURIComponent(suffix.slice(firstSlash + 1));
+    return fileId || null;
+  } catch {
+    return null;
+  }
+};
+
+const parseImageUrlsInput = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))
+    );
+  }
+
+  if (typeof value !== "string") return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return Array.from(
+        new Set(parsed.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))
+      );
+    }
+  } catch {
+    // If it's not JSON, treat it as a single URL string.
+  }
+
+  return [trimmed];
+};
 
 /**
  * @openapi
@@ -206,8 +252,46 @@ export class ExtraController {
   //Actualizar Extra
   static updateExtra = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const uploadedFileIds: string[] = [];
+
     try {
-      const extra = await Extra.findByIdAndUpdate(id, req.body);
+      const imageUrls = parseImageUrlsInput(req.body?.imagenes);
+      const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
+      const totalIncomingImages = imageUrls.length + files.length;
+      const payload = { ...req.body } as Record<string, unknown>;
+      const currentExtra = await Extra.findById(id);
+
+      if (!currentExtra) {
+        const error = new Error("Extra no encontrado");
+        res.status(404).json({ error: error.message });
+        return;
+      }
+
+      if (totalIncomingImages > 1) {
+        res.status(400).json({ error: "Solo se permite 1 imagen" });
+        return;
+      }
+
+      if (totalIncomingImages === 1) {
+        let nextImageUrl = imageUrls[0];
+
+        if (files.length === 1) {
+          const file = files[0];
+          const uploaded = await SupabaseStorageService.uploadFile({
+            fileBuffer: file.buffer,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            mediaKind: "image",
+          });
+
+          uploadedFileIds.push(uploaded.fileId);
+          nextImageUrl = uploaded.url;
+        }
+
+        payload.imagenes = nextImageUrl ? [nextImageUrl] : [];
+      }
+
+      const extra = await Extra.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
 
       if (!extra) {
         const error = new Error("Extra no encontrado");
@@ -215,10 +299,27 @@ export class ExtraController {
         return;
       }
 
-      await extra.save();
+      if (totalIncomingImages === 1) {
+        const previousImages = Array.isArray(currentExtra.imagenes) ? currentExtra.imagenes : [];
+        const currentImage = Array.isArray(extra.imagenes) ? extra.imagenes[0] : undefined;
+        const staleFileIds = previousImages
+          .filter((url) => url !== currentImage)
+          .map((url) => extractSupabaseFileIdFromPublicUrl(url))
+          .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+        if (staleFileIds.length > 0) {
+          await Promise.allSettled(staleFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+        }
+      }
+
       res.send("Extra actualizado correctamente");
     } catch (error) {
+      if (uploadedFileIds.length > 0) {
+        await Promise.allSettled(uploadedFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+      }
+
       console.log(error);
+      res.status(500).json({ message: "Error al actualizar el extra" });
     }
   };
 

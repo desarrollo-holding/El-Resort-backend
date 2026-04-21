@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
+import multer from "multer";
 import { ExtraController } from "../Controllers/ExtraController";
 import { handleInputErrors } from "../middleware/validation";
 import { authenticate } from "../middleware/auth";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { files: 30 } });
 
 //Crear extra 
 router.post(
@@ -36,6 +38,7 @@ router.get(
 router.put(
   "/:id",
   authenticate,
+  upload.array("imagenes", 1),
   param("id").isMongoId().withMessage("El id del extra no es válido"),
   body("nombre").notEmpty().withMessage("El nombre del extra es requerido"),
   body("precio").notEmpty().withMessage("El precio del extra es requerido"),

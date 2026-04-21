@@ -37,7 +37,7 @@ router.post(
 
 router.patch(
   "/:id",
-  upload.array("imagenes", 30),
+  upload.array("imagenes", 1),
   param("id").isMongoId().withMessage("El id no es valido"),
   body("nombre").optional().isString().withMessage("El nombre debe ser texto"),
   handleInputErrors,

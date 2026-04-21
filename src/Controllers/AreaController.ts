@@ -43,6 +43,31 @@ const parseImagesToDelete = (body: unknown): string[] => {
   return Array.from(new Set(values));
 };
 
+const parseImageUrlsInput = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))
+    );
+  }
+
+  if (typeof value !== "string") return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return Array.from(
+        new Set(parsed.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))
+      );
+    }
+  } catch {
+    // If it's not JSON, treat it as a single URL string.
+  }
+
+  return [trimmed];
+};
+
 /**
  * @openapi
  * /api/areas:
@@ -278,10 +303,17 @@ export class AreaController {
 
       const { id } = req.params;
       const nombre = typeof req.body?.nombre === "string" ? req.body.nombre.trim() : "";
+      const imageUrls = parseImageUrlsInput(req.body?.imagenes);
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
+      const totalIncomingImages = imageUrls.length + files.length;
 
-      if (!nombre && files.length === 0) {
-        res.status(400).json({ error: "Debes enviar nombre y/o imagenes" });
+      if (!nombre && imageUrls.length === 0 && files.length === 0) {
+        res.status(400).json({ error: "Debes enviar nombre y/o imagenes (url o archivo)" });
+        return;
+      }
+
+      if (totalIncomingImages > 1) {
+        res.status(400).json({ error: "Solo se permite 1 imagen" });
         return;
       }
 
@@ -295,10 +327,13 @@ export class AreaController {
         area.nombre = nombre;
       }
 
-      if (files.length > 0) {
-        const uploadedUrls: string[] = [];
+      const previousImages = Array.isArray(area.imagenes) ? area.imagenes : [];
 
-        for (const file of files) {
+      if (totalIncomingImages === 1) {
+        let nextImageUrl = imageUrls[0];
+
+        if (files.length === 1) {
+          const file = files[0];
           const uploaded = await SupabaseStorageService.uploadFile({
             fileBuffer: file.buffer,
             originalName: file.originalname,
@@ -307,13 +342,26 @@ export class AreaController {
           });
 
           uploadedFileIds.push(uploaded.fileId);
-          uploadedUrls.push(uploaded.url);
+          nextImageUrl = uploaded.url;
         }
 
-        area.imagenes = Array.from(new Set([...(area.imagenes || []), ...uploadedUrls]));
+        area.imagenes = nextImageUrl ? [nextImageUrl] : [];
       }
 
       await area.save();
+
+      if (totalIncomingImages === 1) {
+        const currentImage = area.imagenes[0];
+        const staleFileIds = previousImages
+          .filter((url) => url !== currentImage)
+          .map((url) => extractSupabaseFileIdFromPublicUrl(url))
+          .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+        if (staleFileIds.length > 0) {
+          await Promise.allSettled(staleFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+        }
+      }
+
       res.json({ success: true, data: area });
     } catch (_error) {
       if (uploadedFileIds.length > 0) {
