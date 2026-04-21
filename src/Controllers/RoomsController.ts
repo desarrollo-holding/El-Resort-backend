@@ -377,24 +377,12 @@ export class RoomsController {
    *   get:
    *     tags: [Rooms]
    *     summary: Listar room types (modelo reducido)
-   *     description: Similar a /api/rooms/show, pero devuelve un payload reducido y aplica fechas por defecto (hoy -> mañana) si no se envían.
+   *     description: Devuelve un payload reducido con todos los room types. El pricing se obtiene desde RoomTypeLocalSpecs (BD local).
    *     parameters:
-   *       - in: query
-   *         name: startDate
-   *         required: false
-   *         schema: { type: string, format: date }
-   *       - in: query
-   *         name: endDate
-   *         required: false
-   *         schema: { type: string, format: date }
    *       - in: query
    *         name: maxGuests
    *         required: false
    *         schema: { type: integer, minimum: 0 }
-   *       - in: query
-   *         name: promoCode
-   *         required: false
-   *         schema: { type: string }
    *       - in: query
    *         name: pageNumber
    *         required: false
@@ -412,8 +400,6 @@ export class RoomsController {
    *               type: object
    *               properties:
    *                 success: { type: boolean }
-   *                 startDate: { type: string, format: date }
-   *                 endDate: { type: string, format: date }
    *                 data:
    *                   type: array
    *                   items: { $ref: '#/components/schemas/RoomTypeReduced' }
@@ -433,24 +419,6 @@ export class RoomsController {
   static showRoomTypesLite = async (req: Request, res: Response): Promise<void> => {
     try {
       const query = req.query as Record<string, unknown>;
-      const queryStartDate = asOptionalString(query.startDate ?? query["start-date"]);
-      const queryEndDate = asOptionalString(query.endDate ?? query["end-date"]);
-      const promoCode = asOptionalString(query.promoCode);
-
-      if ((queryStartDate && !queryEndDate) || (!queryStartDate && queryEndDate)) {
-        res.status(400).json({ error: "startDate y endDate deben enviarse juntos" });
-        return;
-      }
-
-      const { startDate, endDate } =
-        queryStartDate && queryEndDate
-          ? { startDate: queryStartDate, endDate: queryEndDate }
-          : getDefaultStayDates({ offsetMonths: 5 });
-
-      if (!isIsoDateYmd(startDate) || !isIsoDateYmd(endDate)) {
-        res.status(400).json({ error: "startDate/endDate deben tener formato YYYY-MM-DD" });
-        return;
-      }
 
       const maxGuests = asOptionalInt(query.maxGuests);
       if (maxGuests !== undefined && maxGuests < 0) {
@@ -469,12 +437,12 @@ export class RoomsController {
         return;
       }
 
-      const all = await RoomTypesShowService.listRoomTypesReducedWithPricing({ startDate, endDate, maxGuests, promoCode });
+      const all = await RoomTypesShowService.listRoomTypesReducedCatalogWithLocalPricing({ maxGuests });
       const total = all.length;
       const startIndex = (pageNumber - 1) * pageSize;
       const data = all.slice(startIndex, startIndex + pageSize);
 
-      res.json({ success: true, data, count: data.length, total, startDate, endDate });
+      res.json({ success: true, data, count: data.length, total });
     } catch (error) {
       if (error instanceof RoomsService.CloudbedsHttpError) {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
@@ -502,21 +470,9 @@ export class RoomsController {
    *         required: true
    *         schema: { type: string }
    *       - in: query
-   *         name: startDate
-   *         required: false
-   *         schema: { type: string, format: date }
-   *       - in: query
-   *         name: endDate
-   *         required: false
-   *         schema: { type: string, format: date }
-   *       - in: query
    *         name: maxGuests
    *         required: false
    *         schema: { type: integer, minimum: 0 }
-   *       - in: query
-   *         name: promoCode
-   *         required: false
-   *         schema: { type: string }
    *     responses:
    *       200:
    *         description: Room type
@@ -526,8 +482,6 @@ export class RoomsController {
    *               type: object
    *               properties:
    *                 success: { type: boolean }
-   *                 startDate: { type: string, format: date }
-   *                 endDate: { type: string, format: date }
    *                 data: { $ref: '#/components/schemas/RoomTypeReducedDetail' }
    *       400:
    *         description: Parámetros inválidos
@@ -554,22 +508,6 @@ export class RoomsController {
       }
 
       const query = req.query as Record<string, unknown>;
-      const queryStartDate = asOptionalString(query.startDate ?? query["start-date"]);
-      const queryEndDate = asOptionalString(query.endDate ?? query["end-date"]);
-      const promoCode = asOptionalString(query.promoCode);
-
-      if ((queryStartDate && !queryEndDate) || (!queryStartDate && queryEndDate)) {
-        res.status(400).json({ error: "startDate y endDate deben enviarse juntos" });
-        return;
-      }
-
-      const { startDate, endDate } =
-        queryStartDate && queryEndDate ? { startDate: queryStartDate, endDate: queryEndDate } : getDefaultStayDates();
-
-      if (!isIsoDateYmd(startDate) || !isIsoDateYmd(endDate)) {
-        res.status(400).json({ error: "startDate/endDate deben tener formato YYYY-MM-DD" });
-        return;
-      }
 
       const maxGuests = asOptionalInt(query.maxGuests);
       if (maxGuests !== undefined && maxGuests < 0) {
@@ -577,13 +515,13 @@ export class RoomsController {
         return;
       }
 
-      const reduced = await RoomTypesShowService.getRoomTypeReducedDetailWithPricing({ roomTypeID, startDate, endDate, maxGuests, promoCode });
+      const reduced = await RoomTypesShowService.getRoomTypeReducedDetailWithLocalPricing({ roomTypeID, maxGuests });
       if (!reduced) {
         res.status(404).json({ error: "Room type no encontrado" });
         return;
       }
 
-      res.json({ success: true, data: reduced, startDate, endDate });
+      res.json({ success: true, data: reduced });
     } catch (error) {
       if (error instanceof RoomsService.CloudbedsHttpError) {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });

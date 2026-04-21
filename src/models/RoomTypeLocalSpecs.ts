@@ -10,6 +10,12 @@ export type RoomTypeLocalSpecsType = Document & {
   roomTypeID: string;
   bathroomsCount: number;
   bedrooms: RoomTypeBedroomSpec[];
+  video_url: string[];
+  extraGalleryImages: string[];
+  pricing?: {
+    totalRate?: number;
+    ofertaDelMesRoomRate?: number;
+  };
   condominioID?: mongoose.Types.ObjectId;
 };
 
@@ -37,6 +43,20 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       ],
       required: true,
       default: [],
+    },
+    video_url: {
+      type: [String],
+      required: true,
+      default: [],
+    },
+    extraGalleryImages: {
+      type: [String],
+      required: true,
+      default: [],
+    },
+    pricing: {
+      totalRate: { type: Number, required: false, min: 0 },
+      ofertaDelMesRoomRate: { type: Number, required: false, min: 0 },
     },
     condominioID: {
       type: Schema.Types.ObjectId,

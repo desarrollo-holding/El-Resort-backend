@@ -17,6 +17,16 @@ router.post(
   body("bedrooms.*.description").optional().isString().withMessage("bedrooms[].description debe ser string"),
   body("bedrooms.*.photos").optional().isArray().withMessage("bedrooms[].photos debe ser un array"),
   body("bedrooms.*.photos.*").optional().isString().withMessage("Cada photo debe ser string"),
+  body("video_url").optional().isArray().withMessage("video_url debe ser un array"),
+  body("video_url.*").optional().isString().withMessage("Cada video_url debe ser string"),
+  body("extraGalleryImages").optional().isArray().withMessage("extraGalleryImages debe ser un array"),
+  body("extraGalleryImages.*").optional().isString().withMessage("Cada extraGalleryImages debe ser string"),
+  body("pricing").optional().isObject().withMessage("pricing debe ser un objeto"),
+  body("pricing.totalRate").optional().isFloat({ min: 0 }).withMessage("pricing.totalRate debe ser number >= 0"),
+  body("pricing.ofertaDelMesRoomRate")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("pricing.ofertaDelMesRoomRate debe ser number >= 0"),
   handleInputErrors,
   RoomTypeLocalSpecsController.create
 );

@@ -5,8 +5,8 @@ export type RoomTypeReducedModel = {
   roomTypeName: string;
   roomTypePhotos: string[];
   maxGuests?: number;
-  bedroomsCount: number;
-  bathroomsCount: number;
+  bedroomsCount?: number;
+  bathroomsCount?: number;
   pricing: {
     totalRate?: number;
     ofertaDelMesRoomRate?: number;
@@ -16,5 +16,5 @@ export type RoomTypeReducedModel = {
 export type RoomTypeReducedDetailModel = RoomTypeReducedModel & {
   roomTypeDescription?: string;
   roomTypeFeatures?: string[];
-  bedrooms: RoomTypeBedroomSpec[];
+  bedrooms?: RoomTypeBedroomSpec[];
 };

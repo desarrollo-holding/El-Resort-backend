@@ -301,6 +301,25 @@ export const createSwaggerSpec = () => {
                   },
                 },
               },
+              video_url: {
+                type: "array",
+                description: "URLs publicas de videos del room type",
+                items: { type: "string" },
+                example: ["https://storage.example.com/video-1.mp4"],
+              },
+              extraGalleryImages: {
+                type: "array",
+                description: "Galeria extra de imagenes (jpg/png)",
+                items: { type: "string" },
+                example: ["https://storage.example.com/extra-1.jpg"],
+              },
+              pricing: {
+                type: "object",
+                properties: {
+                  totalRate: { type: "number", nullable: true, minimum: 0, example: 2770 },
+                  ofertaDelMesRoomRate: { type: "number", nullable: true, minimum: 0, example: 2350 },
+                },
+              },
               condominioID: { type: "string", nullable: true, example: "64a6c0f1f6a2c8e7e0c0b111" },
               createdAt: { type: "string", format: "date-time" },
               updatedAt: { type: "string", format: "date-time" },
@@ -324,6 +343,23 @@ export const createSwaggerSpec = () => {
                   },
                 },
               },
+              video_url: {
+                type: "array",
+                items: { type: "string" },
+                example: ["https://storage.example.com/video-1.mp4"],
+              },
+              extraGalleryImages: {
+                type: "array",
+                items: { type: "string" },
+                example: ["https://storage.example.com/extra-1.jpg"],
+              },
+              pricing: {
+                type: "object",
+                properties: {
+                  totalRate: { type: "number", nullable: true, minimum: 0, example: 2770 },
+                  ofertaDelMesRoomRate: { type: "number", nullable: true, minimum: 0, example: 2350 },
+                },
+              },
               condominioID: { type: "string", nullable: true, example: "64a6c0f1f6a2c8e7e0c0b111" },
             },
           },
@@ -343,6 +379,23 @@ export const createSwaggerSpec = () => {
                   },
                 },
               },
+              video_url: {
+                type: "array",
+                items: { type: "string" },
+                example: ["https://storage.example.com/video-2.mp4"],
+              },
+              extraGalleryImages: {
+                type: "array",
+                items: { type: "string" },
+                example: ["https://storage.example.com/extra-2.png"],
+              },
+              pricing: {
+                type: "object",
+                properties: {
+                  totalRate: { type: "number", nullable: true, minimum: 0, example: 2770 },
+                  ofertaDelMesRoomRate: { type: "number", nullable: true, minimum: 0, example: 2350 },
+                },
+              },
               condominioID: { type: "string", nullable: true, example: "64a6c0f1f6a2c8e7e0c0b111" },
             },
           },
@@ -351,6 +404,25 @@ export const createSwaggerSpec = () => {
             properties: {
               bathroomsCount: { type: "integer", example: 2, minimum: 0 },
               condominioID: { type: "string", nullable: true, example: "64a6c0f1f6a2c8e7e0c0b111" },
+              pricing: {
+                type: "object",
+                properties: {
+                  totalRate: { type: "number", nullable: true, minimum: 0, example: 2770 },
+                  ofertaDelMesRoomRate: { type: "number", nullable: true, minimum: 0, example: 2350 },
+                },
+              },
+              video_url: {
+                type: "array",
+                description: "URLs de videos que se conservan",
+                items: { type: "string" },
+                example: ["https://storage.example.com/video-previo.mp4"],
+              },
+              extraGalleryImages: {
+                type: "array",
+                description: "URLs de galeria extra que se conservan",
+                items: { type: "string" },
+                example: ["https://storage.example.com/extra-previo.jpg"],
+              },
               bedrooms: {
                 type: "array",
                 items: {
@@ -387,6 +459,16 @@ export const createSwaggerSpec = () => {
                 type: "array",
                 description:
                   "Archivos nuevos. En el form-data cada campo debe llamarse bedroomFiles[<key>] donde <key> es _id, clientKey o number",
+                items: { type: "string", format: "binary" },
+              },
+              videoFiles: {
+                type: "array",
+                description: "Videos nuevos para anexar a video_url",
+                items: { type: "string", format: "binary" },
+              },
+              extraGalleryImageFiles: {
+                type: "array",
+                description: "Imagenes jpg/png nuevas para anexar a extraGalleryImages",
                 items: { type: "string", format: "binary" },
               },
             },
