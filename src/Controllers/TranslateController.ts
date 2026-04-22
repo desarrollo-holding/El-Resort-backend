@@ -1,28 +1,18 @@
 import type { Request, Response } from "express";
 import { TranslateService } from "../services/translate.service";
-import { asNonEmptyTrimmedString, asNonEmptyTrimmedStringArray } from "../utils/translate";
 
 /**
  * @openapi
  * /api/translate/temp:
  *   post:
  *     tags: [Translate]
- *     summary: Endpoint temporal para validar traducciones (es -> en)
+ *     summary: Traduce los valores de un objeto JSON a inglés usando Gemini
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               text:
- *                 type: string
- *                 example: "Hola, como estas?"
- *               texts:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["Hola mundo", "Bienvenido a El Resort"]
  *     responses:
  *       200:
  *         description: Traduccion generada correctamente
@@ -40,31 +30,20 @@ import { asNonEmptyTrimmedString, asNonEmptyTrimmedStringArray } from "../utils/
 export class TranslateController {
   static translateTemp = async (req: Request, res: Response): Promise<void> => {
     try {
-      const text = asNonEmptyTrimmedString(req.body?.text);
-      const texts = asNonEmptyTrimmedStringArray(req.body?.texts);
+      const input = req.body;
 
-      if (!text && !texts) {
-        res.status(400).json({ error: "Debes enviar text (string) o texts (string[])" });
+      if (!input || typeof input !== 'object') {
+        res.status(400).json({ error: 'Debes enviar un objeto JSON en el body' });
         return;
       }
 
-      if (text) {
-        const translation = await TranslateService.translateSpanishToEnglish({ text });
-        res.json({
-          direction: "es->en",
-          translation,
-        });
-        return;
-      }
-
-      const translations = await TranslateService.translateManySpanishToEnglish(texts!);
-      res.json({
-        direction: "es->en",
-        translations,
-      });
+      const translated = await TranslateService.translateJsonObject(input);
+      res.json(translated);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      res.status(500).json({ error: message });
+      const anyError = error as any;
+      const status = typeof anyError?.status === 'number' ? anyError.status : 500;
+      const message = error instanceof Error ? error.message : 'Error interno del servidor';
+      res.status(status).json({ error: message });
     }
   };
 }

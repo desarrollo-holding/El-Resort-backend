@@ -13,3 +13,12 @@ export const asNonEmptyTrimmedStringArray = (value: unknown): string[] | undefin
 
   return normalized.length ? normalized : undefined;
 };
+
+export const stringifyJsonForModel = (obj: unknown): string => {
+  try {
+    return JSON.stringify(obj);
+  } catch (err) {
+    // Fallback: attempt a safe stringify
+    return JSON.stringify(obj, (_k, v) => (v === undefined ? null : v));
+  }
+};
