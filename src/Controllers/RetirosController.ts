@@ -5,6 +5,7 @@ import { RetirosService } from "../services/retiros.service";
  * @openapi
  * /api/retiros:
  *   post:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Retiros]
  *     summary: Crear retiro
  *     requestBody:
@@ -61,6 +62,7 @@ import { RetirosService } from "../services/retiros.service";
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   put:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Retiros]
  *     summary: Actualizar retiro por id
  *     parameters:
@@ -85,6 +87,7 @@ import { RetirosService } from "../services/retiros.service";
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   delete:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Retiros]
  *     summary: Eliminar retiro por id
  *     parameters:

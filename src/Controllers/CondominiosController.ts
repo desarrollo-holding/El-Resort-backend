@@ -7,6 +7,7 @@ import { SupabaseStorageService } from "../services/supabaseStorage.service";
  * @openapi
  * /api/condominios:
  *   post:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Condominios]
  *     summary: Crear un condominio
  *     requestBody:
@@ -37,6 +38,7 @@ import { SupabaseStorageService } from "../services/supabaseStorage.service";
  *                     name: { type: string }
  *                     mapUrl: { type: string, nullable: true }
  *   get:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Condominios]
  *     summary: Listar condominios
  *     responses:
@@ -52,6 +54,7 @@ import { SupabaseStorageService } from "../services/supabaseStorage.service";
  *         required: true
  *         schema: { type: string }
  *   put:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Condominios]
  *     summary: Actualizar condominio por id
  *     parameters:
@@ -72,6 +75,7 @@ import { SupabaseStorageService } from "../services/supabaseStorage.service";
  *                 type: string
  *                 format: binary
  *   delete:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Condominios]
  *     summary: Eliminar condominio por id
  */

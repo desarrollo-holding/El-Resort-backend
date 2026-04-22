@@ -11,6 +11,7 @@ const isMongoDuplicateKeyError = (error: unknown): boolean => {
  * @openapi
  * /api/landing-page-sections:
  *   post:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [LandingPageSections]
  *     summary: Crear sección para landing page
  *     requestBody:

@@ -90,6 +90,7 @@ const parseImageUrlsInput = (value: unknown): string[] => {
  *               type: array
  *               items: { $ref: '#/components/schemas/Area' }
  *   post:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Areas]
  *     summary: Crear área
  *     requestBody:
@@ -144,6 +145,7 @@ const parseImageUrlsInput = (value: unknown): string[] => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   patch:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Areas]
  *     summary: Actualizar área por id (nombre y/o nuevas imágenes)
  *     parameters:
@@ -191,6 +193,7 @@ const parseImageUrlsInput = (value: unknown): string[] => {
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  * /api/areas/{id}/imagenes:
  *   delete:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [Areas]
  *     summary: Eliminar una o más imágenes de un área
  *     parameters:

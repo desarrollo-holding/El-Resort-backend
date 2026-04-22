@@ -2,6 +2,8 @@ import { Router } from "express";
 import { body, param, query } from "express-validator";
 import { TextosLandingPageController } from "../Controllers/TextosLandingPageController";
 import { handleInputErrors } from "../middleware/validation";
+import { authenticate } from "../middleware/auth";
+import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
 
@@ -11,6 +13,8 @@ router.post(
   body("section").isMongoId().withMessage("section debe ser un id valido"),
   body("json").exists().withMessage("json es requerido"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   TextosLandingPageController.create
 );
 
@@ -40,6 +44,8 @@ router.patch(
   param("id").isString().notEmpty().withMessage("id es requerido"),
   body("json").optional().exists().withMessage("json es requerido cuando se envia"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   TextosLandingPageController.updateById
 );
 
@@ -47,6 +53,8 @@ router.delete(
   "/:id",
   param("id").isString().notEmpty().withMessage("id es requerido"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   TextosLandingPageController.deleteById
 );
 

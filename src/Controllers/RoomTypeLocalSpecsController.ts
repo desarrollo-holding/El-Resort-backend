@@ -8,6 +8,7 @@ import { CondominiosService } from "../services/condominios.service";
  * @openapi
  * /api/room-type-specs:
  *   post:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [RoomTypeSpecs]
  *     summary: Crear metadatos locales de un room type
  *     description: Guarda metadatos locales por roomTypeID (baños + detalle de dormitorios).
@@ -77,6 +78,7 @@ import { CondominiosService } from "../services/condominios.service";
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   put:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [RoomTypeSpecs]
  *     summary: Actualizar metadatos locales por roomTypeID
  *     parameters:

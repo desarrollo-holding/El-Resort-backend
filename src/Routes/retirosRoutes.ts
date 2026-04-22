@@ -2,6 +2,8 @@ import { Router } from "express";
 import { body, param } from "express-validator";
 import { RetirosController } from "../Controllers/RetirosController";
 import { handleInputErrors } from "../middleware/validation";
+import { authenticate } from "../middleware/auth";
+import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
 
@@ -19,6 +21,8 @@ router.post(
   body("precioPorPersona").isNumeric().withMessage("precioPorPersona debe ser numérico"),
   body("disponible").isBoolean().withMessage("disponible debe ser booleano"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   RetirosController.create
 );
 
@@ -35,6 +39,8 @@ router.put(
   "/:id",
   param("id").isMongoId().withMessage("El id del retiro no es válido"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   RetirosController.updateById
 );
 
@@ -42,6 +48,8 @@ router.delete(
   "/:id",
   param("id").isMongoId().withMessage("El id del retiro no es válido"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   RetirosController.deleteById
 );
 

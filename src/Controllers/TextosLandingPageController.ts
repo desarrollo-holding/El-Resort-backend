@@ -11,6 +11,7 @@ const isMongoDuplicateKeyError = (error: unknown): boolean => {
  * @openapi
  * /api/textos-landing-page:
  *   post:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [TextosLandingPage]
  *     summary: Crear texto de landing por idioma y sectionId
  *     requestBody:
@@ -89,6 +90,7 @@ const isMongoDuplicateKeyError = (error: unknown): boolean => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   patch:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [TextosLandingPage]
  *     summary: Actualizar parcialmente json de un registro por id
  *     parameters:
@@ -115,6 +117,7 @@ const isMongoDuplicateKeyError = (error: unknown): boolean => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   delete:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [TextosLandingPage]
  *     summary: Eliminar registro por id
  *     parameters:

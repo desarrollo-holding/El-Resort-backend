@@ -270,6 +270,7 @@ const parseStorageDeletePaths = (value: unknown): string[] => {
  * @openapi
  * /api/landing-media:
  *   post:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [LandingMedia]
  *     summary: Crear configuración de media de landing
  *     description: |
@@ -447,6 +448,7 @@ const parseStorageDeletePaths = (value: unknown): string[] => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   delete:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [LandingMedia]
  *     summary: Eliminar imágenes/archivos del bucket de Supabase
  *     description: |
@@ -489,6 +491,7 @@ const parseStorageDeletePaths = (value: unknown): string[] => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   patch:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [LandingMedia]
  *     summary: Actualizar configuración por identificación inicial
  *     description: |
@@ -544,6 +547,7 @@ const parseStorageDeletePaths = (value: unknown): string[] => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   patch:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [LandingMedia]
  *     summary: Actualizar configuración por id
  *     parameters:
@@ -579,6 +583,7 @@ const parseStorageDeletePaths = (value: unknown): string[] => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   delete:
+ *     security: [{ bearerAuth: [] }]
  *     tags: [LandingMedia]
  *     summary: Eliminar configuración por id
  *     parameters:

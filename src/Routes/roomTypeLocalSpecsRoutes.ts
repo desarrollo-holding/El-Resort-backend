@@ -3,6 +3,8 @@ import { body, param } from "express-validator";
 import multer from "multer";
 import { RoomTypeLocalSpecsController } from "../Controllers/RoomTypeLocalSpecsController";
 import { handleInputErrors } from "../middleware/validation";
+import { authenticate } from "../middleware/auth";
+import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { files: 50 } });
@@ -28,6 +30,8 @@ router.post(
     .isFloat({ min: 0 })
     .withMessage("pricing.ofertaDelMesRoomRate debe ser number >= 0"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   RoomTypeLocalSpecsController.create
 );
 
@@ -44,6 +48,8 @@ router.put(
   param("roomTypeID").isString().notEmpty().withMessage("roomTypeID es requerido"),
   body("payload").optional().isString().withMessage("payload debe ser string JSON en multipart"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   RoomTypeLocalSpecsController.updateByRoomTypeID
 );
 

@@ -4,6 +4,8 @@ import multer from "multer";
 import { AreaController } from "../Controllers/AreaController";
 import { handleInputErrors } from "../middleware/validation";
 import { AREA_CATEGORIAS } from "../models/Area";
+import { authenticate } from "../middleware/auth";
+import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { files: 30 } });
@@ -32,6 +34,8 @@ router.post(
   body("imagenes").optional().isArray().withMessage("Las imágenes deben ser un array"),
   body("imagenes.*").optional().isString().withMessage("Cada imagen debe ser un string"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   AreaController.createArea
 );
 
@@ -41,6 +45,8 @@ router.patch(
   param("id").isMongoId().withMessage("El id no es valido"),
   body("nombre").optional().isString().withMessage("El nombre debe ser texto"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   AreaController.patchAreaById
 );
 
@@ -51,6 +57,8 @@ router.delete(
   body("imagenes").optional().isArray().withMessage("imagenes debe ser un array"),
   body("imagenes.*").optional().isString().withMessage("Cada imagen debe ser string"),
   handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
   AreaController.deleteAreaImagesById
 );
 

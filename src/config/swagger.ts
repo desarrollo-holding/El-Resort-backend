@@ -108,7 +108,7 @@ export const createSwaggerSpec = () => {
               email: { type: "string", example: "juan@correo.com" },
               rol: {
                 type: "string",
-                enum: ["admin", "host", "kitchen-admin", "kitchen-host", "delivery", "chofer"],
+                enum: ["admin", "host", "kitchen-admin", "kitchen-host", "delivery", "chofer", "marketing"],
                 example: "host",
               },
             },
