@@ -32,6 +32,23 @@ router.get(
   TextosLandingPageController.getSpanishBySectionId
 );
 
+router.post(
+  "/section/:sectionId/translate-en",
+  param("sectionId").isMongoId().withMessage("sectionId debe ser un id valido"),
+  handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
+  TextosLandingPageController.translateSectionToEnglish
+);
+
+// Endpoint provisional de pruebas: recibe sectionId por body y no requiere auth
+router.post(
+  "/translate-en-temp",
+  body("sectionId").isMongoId().withMessage("sectionId debe ser un id valido"),
+  handleInputErrors,
+  TextosLandingPageController.translateSectionToEnglishTemp
+);
+
 router.get(
   "/:id",
   param("id").isString().notEmpty().withMessage("id es requerido"),

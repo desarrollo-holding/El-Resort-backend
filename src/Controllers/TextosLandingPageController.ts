@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { TextosLandingPageService } from "../services/textosLandingPage.service";
+import { TranslateService } from "../services/translate.service";
 
 const isMongoDuplicateKeyError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false;
@@ -73,6 +74,59 @@ const isMongoDuplicateKeyError = (error: unknown): boolean => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *
+ * /api/textos-landing-page/section/{sectionId}/translate-en:
+ *   post:
+ *     security: [{ bearerAuth: [] }]
+ *     tags: [TextosLandingPage]
+ *     summary: Traduce el json de la sección desde es y crea registro en en
+ *     parameters:
+ *       - in: path
+ *         name: sectionId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       201:
+ *         description: Registro en idioma en creado correctamente
+ *       404:
+ *         description: No existe registro es para la sección
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       409:
+ *         description: Ya existe registro en para la sección
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *
+ * /api/textos-landing-page/translate-en-temp:
+ *   post:
+ *     tags: [TextosLandingPage]
+ *     summary: Endpoint provisional para traducir una sección a en por sectionId en body
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sectionId]
+ *             properties:
+ *               sectionId:
+ *                 type: string
+ *                 example: 67fbe2b9f95aab97d58f4c2a
+ *     responses:
+ *       201:
+ *         description: Registro en idioma en creado correctamente
+ *       404:
+ *         description: No existe registro es para la sección
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       409:
+ *         description: Ya existe registro en para la sección
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *
  * /api/textos-landing-page/{id}:
  *   get:
  *     tags: [TextosLandingPage]
@@ -134,6 +188,29 @@ const isMongoDuplicateKeyError = (error: unknown): boolean => {
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 export class TextosLandingPageController {
+  private static translateSectionToEnglishCore = async (sectionId: string, res: Response): Promise<void> => {
+    const sourceEs = await TextosLandingPageService.getBySectionAndIdioma(sectionId, "es");
+    if (!sourceEs) {
+      res.status(404).json({ error: "No existe registro en idioma 'es' para ese sectionId" });
+      return;
+    }
+
+    const existingEn = await TextosLandingPageService.getBySectionAndIdioma(sectionId, "en");
+    if (existingEn) {
+      res.status(409).json({ error: "Ya existe registro en idioma 'en' para ese sectionId" });
+      return;
+    }
+
+    if (!sourceEs.json || typeof sourceEs.json !== "object" || Array.isArray(sourceEs.json)) {
+      res.status(400).json({ error: "El campo json en 'es' debe ser un objeto JSON para traducir" });
+      return;
+    }
+
+    const translatedJson = await TranslateService.translateJsonObject(sourceEs.json as object);
+    const created = await TextosLandingPageService.create("en", sectionId, translatedJson);
+    res.status(201).json({ success: true, data: created });
+  };
+
   static create = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
@@ -213,6 +290,62 @@ export class TextosLandingPageController {
     }
   };
 
+  static translateSectionToEnglish = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      const { sectionId } = req.params;
+      await TextosLandingPageController.translateSectionToEnglishCore(sectionId, res);
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) {
+        res.status(409).json({ error: "Ya existe un registro para esa combinacion idioma + sectionId" });
+        return;
+      }
+
+      const anyError = error as any;
+      const message = error instanceof Error ? error.message : "Error interno del servidor";
+      const status = typeof anyError?.status === "number" ? anyError.status : 500;
+
+      if (status >= 400 && status < 500) {
+        res.status(status).json({ error: message });
+        return;
+      }
+
+      res.status(500).json({ error: message });
+    }
+  };
+
+  static translateSectionToEnglishTemp = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      const { sectionId } = req.body as { sectionId: string };
+      await TextosLandingPageController.translateSectionToEnglishCore(sectionId, res);
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) {
+        res.status(409).json({ error: "Ya existe un registro para esa combinacion idioma + sectionId" });
+        return;
+      }
+
+      const anyError = error as any;
+      const message = error instanceof Error ? error.message : "Error interno del servidor";
+      const status = typeof anyError?.status === "number" ? anyError.status : 500;
+
+      if (status >= 400 && status < 500) {
+        res.status(status).json({ error: message });
+        return;
+      }
+
+      res.status(500).json({ error: message });
+    }
+  };
+
   static updateById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
@@ -230,6 +363,17 @@ export class TextosLandingPageController {
       if (!updated) {
         res.status(404).json({ error: "No encontrado" });
         return;
+      }
+
+      // Auto-sync: si se actualiza 'es', intentamos refrescar 'en' con Gemini.
+      // Si Gemini falla, NO tocamos el registro en inglés.
+      if (updated.idioma === "es" && updated.json && typeof updated.json === "object" && !Array.isArray(updated.json)) {
+        try {
+          const translatedEnJson = await TranslateService.translateJsonObject(updated.json as object);
+          await TextosLandingPageService.upsertBySectionAndIdioma(updated.section, "en", translatedEnJson);
+        } catch (geminiError) {
+          console.warn("@@ Gemini failed during auto-sync EN; leaving EN unchanged:", geminiError);
+        }
       }
 
       res.json({ success: true, data: updated });

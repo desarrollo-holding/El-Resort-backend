@@ -145,6 +145,54 @@ export const TextosLandingPageService = {
     });
   },
 
+  async getBySectionAndIdioma(sectionId: string, idioma: string): Promise<TextoLandingPageDto | null> {
+    const normalizedIdioma = idioma.trim().toLowerCase();
+    const doc = await TextosLandingPage.findOne({ section: sectionId, idioma: normalizedIdioma }).populate("section", "name").lean();
+    if (!doc) return null;
+
+    const sectionField = doc.section as { _id?: unknown; name?: unknown } | unknown;
+    const normalizedSectionId =
+      sectionField && typeof sectionField === "object" && "_id" in sectionField
+        ? (sectionField as { _id: unknown })._id
+        : doc.section;
+    const sectionName =
+      sectionField && typeof sectionField === "object" && "name" in sectionField && typeof (sectionField as { name?: unknown }).name === "string"
+        ? (sectionField as { name: string }).name
+        : undefined;
+
+    return toDto({
+      _id: doc._id,
+      idioma: doc.idioma,
+      section: normalizedSectionId,
+      sectionName,
+      json: doc.json,
+    });
+  },
+
+  async upsertBySectionAndIdioma(sectionId: string, idioma: string, json: unknown): Promise<TextoLandingPageDto> {
+    const normalizedIdioma = idioma.trim().toLowerCase();
+    if (normalizedIdioma !== "es" && normalizedIdioma !== "en") {
+      throw new Error("idioma debe ser 'es' o 'en'");
+    }
+
+    const doc = await TextosLandingPage.findOneAndUpdate(
+      { section: sectionId, idioma: normalizedIdioma },
+      { $set: { json } },
+      {
+        upsert: true,
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      }
+    ).lean();
+
+    if (!doc) {
+      throw new Error("No se pudo upsert el registro");
+    }
+
+    return toDto(doc);
+  },
+
   async listAll(): Promise<TextoLandingPageDto[]> {
     const docs = await TextosLandingPage.find({}).sort({ idioma: 1 }).lean();
     return docs.map(toDto);
