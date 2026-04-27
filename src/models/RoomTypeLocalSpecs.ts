@@ -11,6 +11,7 @@ export type RoomTypeLocalSpecsType = Document & {
   bathroomsCount: number;
   bedrooms: RoomTypeBedroomSpec[];
   video_url: string[];
+  portada_video?: string | null;
   extraGalleryImages: string[];
   pricing?: {
     totalRate?: number;
@@ -48,6 +49,11 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       type: [String],
       required: true,
       default: [],
+    },
+    portada_video: {
+      type: String,
+      required: false,
+      default: null,
     },
     extraGalleryImages: {
       type: [String],

@@ -145,6 +145,7 @@ type UpdatePayload = {
   bedrooms?: BedroomInput[];
   video_url?: string[];
   extraGalleryImages?: string[];
+  portada_video?: string | null;
   pricing?: {
     totalRate?: number;
     ofertaDelMesRoomRate?: number;
@@ -179,12 +180,14 @@ type NormalizedFiles = {
   bedroomFilesByKey: Map<string, Express.Multer.File[]>;
   videoFiles: Express.Multer.File[];
   extraGalleryImageFiles: Express.Multer.File[];
+  portadaVideoImageFiles: Express.Multer.File[];
 };
 
 const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
   const bedroomFilesByKey = new Map<string, Express.Multer.File[]>();
   const videoFiles: Express.Multer.File[] = [];
   const extraGalleryImageFiles: Express.Multer.File[] = [];
+  const portadaVideoImageFiles: Express.Multer.File[] = [];
   const fieldRegex = /^bedroomFiles\[(.+)\]$/;
 
   for (const file of files) {
@@ -195,6 +198,11 @@ const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
 
     if (file.fieldname === "extraGalleryImageFiles") {
       extraGalleryImageFiles.push(file);
+      continue;
+    }
+
+    if (file.fieldname === "portadaVideoImageFiles") {
+      portadaVideoImageFiles.push(file);
       continue;
     }
 
@@ -216,7 +224,7 @@ const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
     bedroomFilesByKey.set(key, bucket);
   }
 
-  return { bedroomFilesByKey, videoFiles, extraGalleryImageFiles };
+  return { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles };
 };
 
 const normalizeBedrooms = (value: unknown): BedroomInput[] => {
@@ -321,19 +329,21 @@ const assertVideoFiles = (files: Express.Multer.File[], fieldName: string): void
 
 export class RoomTypeLocalSpecsController {
   static create = async (req: Request, res: Response): Promise<void> => {
+    const uploadedFileIds: string[] = [];
     try {
       if (mongoose.connection.readyState !== 1) {
         res.status(503).json({ error: "Base de datos no conectada" });
         return;
       }
 
-      const { roomTypeID, bedrooms, bathroomsCount, condominioID, video_url, extraGalleryImages, pricing } = req.body as {
+      const { roomTypeID, bedrooms, bathroomsCount, condominioID, video_url, extraGalleryImages, portada_video, pricing } = req.body as {
         roomTypeID: string;
         bathroomsCount: number;
         bedrooms: Array<{ number: number; description?: string; photos?: string[] }>;
         condominioID?: string;
         video_url?: string[];
         extraGalleryImages?: string[];
+        portada_video?: string;
         pricing?: {
           totalRate?: number;
           ofertaDelMesRoomRate?: number;
@@ -343,6 +353,31 @@ export class RoomTypeLocalSpecsController {
       const normalizedVideoUrls = normalizeStringArray(video_url, "video_url") ?? [];
       const normalizedExtraGalleryImages = normalizeStringArray(extraGalleryImages, "extraGalleryImages") ?? [];
       const normalizedPricing = normalizePricing(pricing, "pricing");
+
+      // manejar archivos multipart (opcional): portadaVideoImageFiles
+      const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
+      let portadaVideoImageFiles: Express.Multer.File[] = [];
+      if (files.length > 0) {
+        const normalizedFiles = normalizeFileMap(files);
+        portadaVideoImageFiles = normalizedFiles.portadaVideoImageFiles ?? [];
+      }
+
+      if (portadaVideoImageFiles.length > 0) {
+        assertImageFiles(portadaVideoImageFiles, "portadaVideoImageFiles");
+      }
+
+      let portada_video_value: string | null = typeof portada_video === "string" && portada_video.trim().length > 0 ? portada_video.trim() : null;
+      if (portadaVideoImageFiles.length > 0) {
+        const file = portadaVideoImageFiles[0];
+        const uploaded = await SupabaseStorageService.uploadFile({
+          fileBuffer: file.buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          mediaKind: "image",
+        });
+        uploadedFileIds.push(uploaded.fileId);
+        portada_video_value = uploaded.url;
+      }
 
       const doc = await RoomTypeLocalSpecs.create({
         roomTypeID,
@@ -356,11 +391,16 @@ export class RoomTypeLocalSpecsController {
             }))
           : [],
         video_url: normalizedVideoUrls,
+        portada_video: portada_video_value,
         extraGalleryImages: normalizedExtraGalleryImages,
         pricing: normalizedPricing,
       });
       res.status(201).json({ success: true, data: doc });
     } catch (error) {
+      if (uploadedFileIds.length > 0) {
+        await Promise.allSettled(uploadedFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+      }
+
       if (isMongoDuplicateKeyError(error)) {
         res.status(409).json({ error: "Ya existe un registro con ese roomTypeID" });
         return;
@@ -422,12 +462,14 @@ export class RoomTypeLocalSpecsController {
       const bedrooms = normalizeBedrooms(payload.bedrooms);
       const videoUrls = normalizeStringArray(payload.video_url, "video_url");
       const extraGalleryImages = normalizeStringArray(payload.extraGalleryImages, "extraGalleryImages");
+      const portadaVideoRaw = payload.portada_video;
       const pricing = normalizePricing(payload.pricing, "pricing");
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
-      const { bedroomFilesByKey, videoFiles, extraGalleryImageFiles } = normalizeFileMap(files);
+      const { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles } = normalizeFileMap(files);
 
       assertVideoFiles(videoFiles, "videoFiles");
       assertImageFiles(extraGalleryImageFiles, "extraGalleryImageFiles");
+      assertImageFiles(portadaVideoImageFiles, "portadaVideoImageFiles");
 
       if (
         bedrooms.length === 0 &&
@@ -465,6 +507,7 @@ export class RoomTypeLocalSpecsController {
         bedrooms: Array<{ number: number; description?: string; photos: string[] }>;
         video_url: string[];
         extraGalleryImages: string[];
+        portada_video?: string | null;
         pricing: {
           totalRate?: number;
           ofertaDelMesRoomRate?: number;
@@ -527,6 +570,30 @@ export class RoomTypeLocalSpecsController {
         }
 
         update.video_url = Array.from(new Set([...(videoUrls ?? []), ...uploadedVideoUrls]));
+      }
+
+      // Si se envió archivo de portada, subir la primera imagen y usar su URL
+      if (portadaVideoImageFiles.length > 0) {
+        const file = portadaVideoImageFiles[0];
+        const uploaded = await SupabaseStorageService.uploadFile({
+          fileBuffer: file.buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          mediaKind: "image",
+        });
+        uploadedFileIds.push(uploaded.fileId);
+        update.portada_video = uploaded.url;
+      }
+
+      if (portadaVideoImageFiles.length === 0 && portadaVideoRaw !== undefined) {
+        if (portadaVideoRaw === null) {
+          update.portada_video = null;
+        } else if (typeof portadaVideoRaw === "string") {
+          const trimmed = portadaVideoRaw.trim();
+          update.portada_video = trimmed.length > 0 ? trimmed : null;
+        } else {
+          throw toHttpError(400, "portada_video debe ser una cadena o null");
+        }
       }
 
       if (extraGalleryImages !== undefined || extraGalleryImageFiles.length > 0) {

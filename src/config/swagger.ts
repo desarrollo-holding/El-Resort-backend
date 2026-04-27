@@ -307,6 +307,7 @@ export const createSwaggerSpec = () => {
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-1.mp4"],
               },
+              portada_video: { type: "string", nullable: true, description: "URL de la imagen portada del video (solo una)", example: "https://storage.example.com/cover-1.jpg" },
               extraGalleryImages: {
                 type: "array",
                 description: "Galeria extra de imagenes (jpg/png)",
@@ -348,6 +349,7 @@ export const createSwaggerSpec = () => {
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-1.mp4"],
               },
+              portada_video: { type: "string", nullable: true, example: "https://storage.example.com/cover-1.jpg" },
               extraGalleryImages: {
                 type: "array",
                 items: { type: "string" },
@@ -384,6 +386,7 @@ export const createSwaggerSpec = () => {
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-2.mp4"],
               },
+              portada_video: { type: "string", nullable: true, example: "https://storage.example.com/cover-2.jpg" },
               extraGalleryImages: {
                 type: "array",
                 items: { type: "string" },
@@ -417,6 +420,7 @@ export const createSwaggerSpec = () => {
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-previo.mp4"],
               },
+              portada_video: { type: "string", description: "URL de portada de video que se conserva (si existe)", nullable: true, example: "https://storage.example.com/cover-previo.jpg" },
               extraGalleryImages: {
                 type: "array",
                 description: "URLs de galeria extra que se conservan",
