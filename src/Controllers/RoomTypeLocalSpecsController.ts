@@ -3,6 +3,8 @@ import RoomTypeLocalSpecs from "../models/RoomTypeLocalSpecs";
 import mongoose from "mongoose";
 import { SupabaseStorageService } from "../services/supabaseStorage.service";
 import { CondominiosService } from "../services/condominios.service";
+import { parseIdiomaQuery } from "../utils/idioma";
+import { RoomTypeTranslationService } from "../services/roomTypeTranslation.service";
 
 /**
  * @openapi
@@ -52,6 +54,10 @@ import { CondominiosService } from "../services/condominios.service";
  *         name: roomTypeID
  *         required: true
  *         schema: { type: string }
+ *       - in: query
+ *         name: idioma
+ *         required: true
+ *         schema: { type: string, enum: [es, en] }
  *     responses:
  *       200:
  *         description: OK
@@ -370,6 +376,12 @@ export class RoomTypeLocalSpecsController {
         return;
       }
 
+      const idioma = parseIdiomaQuery((req.query as Record<string, unknown>).idioma);
+      if (!idioma) {
+        res.status(400).json({ error: "idioma es requerido (es|en)" });
+        return;
+      }
+
       const { roomTypeID } = req.params;
       const doc = await RoomTypeLocalSpecs.findOne({ roomTypeID }).lean();
       if (!doc) {
@@ -380,7 +392,14 @@ export class RoomTypeLocalSpecsController {
       const condominioID = doc.condominioID ? String(doc.condominioID) : null;
       const mapUrl = condominioID ? await CondominiosService.getMapUrlById(condominioID) : null;
 
-      res.json({ success: true, data: { ...doc, condominioID, mapUrl } });
+      const payload = { success: true, data: { ...doc, condominioID, mapUrl } };
+      if (idioma === "en") {
+        const translated = await RoomTypeTranslationService.translateRoomTypeSpecsPayloadToEnglish(payload);
+        res.json(translated);
+        return;
+      }
+
+      res.json(payload);
     } catch (_error) {
       res.status(500).json({ error: "Error interno del servidor" });
     }

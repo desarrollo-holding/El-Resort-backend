@@ -3,6 +3,8 @@ import { RoomsService } from "../services/rooms.service";
 import { RoomTypesShowService } from "../services/roomTypesShow.service";
 import { asOptionalBoolean, asOptionalInt, asOptionalString, formatCloudbedsError } from "../utils/http";
 import { getDefaultStayDates, isIsoDateYmd } from "../utils/dates";
+import { parseIdiomaQuery } from "../utils/idioma";
+import { RoomTypeTranslationService } from "../services/roomTypeTranslation.service";
 
 /**
  * @openapi
@@ -158,6 +160,10 @@ import { getDefaultStayDates, isIsoDateYmd } from "../utils/dates";
  *     summary: Listar room types (modelo propio, base)
  *     description: Agrega /api/rooms + /api/rooms/types y devuelve RoomTypeModel[]. pricing queda vacío por defecto.
  *     parameters:
+ *       - in: query
+ *         name: idioma
+ *         required: true
+ *         schema: { type: string, enum: [es, en] }
  *       - in: query
  *         name: startDate
  *         required: true
@@ -324,6 +330,12 @@ export class RoomsController {
   static showRoomTypes = async (req: Request, res: Response): Promise<void> => {
     try {
       const query = req.query as Record<string, unknown>;
+      const idioma = parseIdiomaQuery(query.idioma);
+      if (!idioma) {
+        res.status(400).json({ error: "idioma es requerido (es|en)" });
+        return;
+      }
+
       const startDate = asOptionalString(query.startDate ?? query["start-date"]);
       const endDate = asOptionalString(query.endDate ?? query["end-date"]);
       const promoCode = asOptionalString(query.promoCode);
@@ -360,7 +372,14 @@ export class RoomsController {
       const startIndex = (pageNumber - 1) * pageSize;
       const data = all.slice(startIndex, startIndex + pageSize);
 
-      res.json({ success: true, data, count: data.length, total });
+      const payload = { success: true, data, count: data.length, total };
+      if (idioma === "en") {
+        const translated = await RoomTypeTranslationService.translateRoomsShowPayloadToEnglish(payload);
+        res.json(translated);
+        return;
+      }
+
+      res.json(payload);
     } catch (error) {
       if (error instanceof RoomsService.CloudbedsHttpError) {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
@@ -469,6 +488,10 @@ export class RoomsController {
    *         name: roomTypeID
    *         required: true
    *         schema: { type: string }
+  *       - in: query
+  *         name: idioma
+  *         required: true
+  *         schema: { type: string, enum: [es, en] }
    *       - in: query
    *         name: maxGuests
    *         required: false
@@ -508,6 +531,11 @@ export class RoomsController {
       }
 
       const query = req.query as Record<string, unknown>;
+      const idioma = parseIdiomaQuery(query.idioma);
+      if (!idioma) {
+        res.status(400).json({ error: "idioma es requerido (es|en)" });
+        return;
+      }
 
       const maxGuests = asOptionalInt(query.maxGuests);
       if (maxGuests !== undefined && maxGuests < 0) {
@@ -521,7 +549,14 @@ export class RoomsController {
         return;
       }
 
-      res.json({ success: true, data: reduced });
+      const payload = { success: true, data: reduced };
+      if (idioma === "en") {
+        const translated = await RoomTypeTranslationService.translateRoomsShowByIdPayloadToEnglish(payload);
+        res.json(translated);
+        return;
+      }
+
+      res.json(payload);
     } catch (error) {
       if (error instanceof RoomsService.CloudbedsHttpError) {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
