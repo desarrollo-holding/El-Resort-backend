@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getCachedSupabaseClientFromEnv } from "../config/supabase";
+import getOptimizedVideoUrl from "../utils/videoUrl";
 
 interface ImageDimensions {
   width: number;
@@ -371,19 +372,24 @@ export const SupabaseStorageService = {
     const mappedData = await Promise.all(
       entries.map(async ({ path: fullPath, item }) => {
 
+        const metadata = item.metadata && typeof item.metadata === "object" ? (item.metadata as Record<string, unknown>) : null;
+        const metadataMimetype = metadata && typeof metadata.mimetype === "string" ? metadata.mimetype : undefined;
+        const metadataSize = metadata && typeof metadata.size === "number" ? metadata.size : undefined;
+
         let url = "";
         if (signed) {
           const signedUrlResult = await client.storage.from(config.bucket).createSignedUrl(fullPath, expiresIn);
           if (signedUrlResult.error) throw signedUrlResult.error;
           url = signedUrlResult.data.signedUrl;
         } else {
-          const { data: publicUrlData } = client.storage.from(config.bucket).getPublicUrl(fullPath);
-          url = publicUrlData.publicUrl;
+          const isVideo = (typeof metadataMimetype === "string" && metadataMimetype.startsWith("video/")) || /\.(mp4|mov|m4v|webm|ogg|avi|mkv)$/i.test(fullPath);
+          if (isVideo) {
+            url = getOptimizedVideoUrl(config.bucket, fullPath);
+          } else {
+            const { data: publicUrlData } = client.storage.from(config.bucket).getPublicUrl(fullPath);
+            url = publicUrlData.publicUrl;
+          }
         }
-
-        const metadata = item.metadata && typeof item.metadata === "object" ? (item.metadata as Record<string, unknown>) : null;
-        const metadataMimetype = metadata && typeof metadata.mimetype === "string" ? metadata.mimetype : undefined;
-        const metadataSize = metadata && typeof metadata.size === "number" ? metadata.size : undefined;
 
         return {
           name: item.name,
@@ -501,6 +507,10 @@ export const SupabaseStorageService = {
         });
       }
       throw error;
+    }
+
+    if (resolvedKind === "video") {
+      return { fileId: generatedName, url: getOptimizedVideoUrl(config.bucket, generatedName) };
     }
 
     const { data } = client.storage.from(config.bucket).getPublicUrl(generatedName);
