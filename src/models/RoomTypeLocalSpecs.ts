@@ -10,6 +10,8 @@ export type RoomTypeLocalSpecsType = Document & {
   roomTypeID: string;
   bathroomsCount: number;
   bedrooms: RoomTypeBedroomSpec[];
+  portada?: string | null;
+  portadaMenu?: string | null;
   video_url: string[];
   portada_video?: string | null;
   extraGalleryImages: string[];
@@ -49,6 +51,16 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       type: [String],
       required: true,
       default: [],
+    },
+    portada: {
+      type: String,
+      required: false,
+      default: null,
+    },
+    portadaMenu: {
+      type: String,
+      required: false,
+      default: null,
     },
     portada_video: {
       type: String,

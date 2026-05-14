@@ -260,9 +260,9 @@ const fetchRatePlansIndex = async (params: {
   return index;
 };
 
-type LocalSpecsNormalized = { bathroomsCount: number; bedrooms: Array<{ number: number; description?: string; photos: string[] }> };
+type LocalSpecsNormalized = { bathroomsCount: number; bedrooms: Array<{ number: number; description?: string; photos: string[] }>; portada?: string | null; portadaMenu?: string | null };
 type LocalPricingNormalized = { totalRate?: number; ofertaDelMesRoomRate?: number };
-type ReducedMappingOptions = { applyFallbackDefaults?: boolean };
+type ReducedMappingOptions = { applyFallbackDefaults?: boolean; portadaOnly?: boolean; includePortadaMenu?: boolean };
 
 const normalizeLocalBedrooms = (value: unknown): LocalSpecsNormalized["bedrooms"] => {
   if (!Array.isArray(value)) return [];
@@ -294,7 +294,7 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
   if (uniqueIDs.length === 0) return index;
 
   const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs } })
-    .select({ roomTypeID: 1, bathroomsCount: 1, bedrooms: 1 })
+    .select({ roomTypeID: 1, bathroomsCount: 1, bedrooms: 1, portada: 1, portadaMenu: 1 })
     .lean();
 
   for (const doc of docs) {
@@ -312,7 +312,11 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
           : [];
 
     if (bathroomsCount === undefined) continue;
-    index.set(doc.roomTypeID, { bathroomsCount, bedrooms: derivedBedrooms });
+    const rawPortada = (doc as any).portada;
+    const portada: string | null = typeof rawPortada === "string" ? rawPortada : null;
+    const rawPortadaMenu = (doc as any).portadaMenu;
+    const portadaMenu: string | null = typeof rawPortadaMenu === "string" ? rawPortadaMenu : null;
+    index.set(doc.roomTypeID, { bathroomsCount, bedrooms: derivedBedrooms, portada, portadaMenu });
   }
 
   return index;
@@ -537,22 +541,34 @@ export const RoomTypesShowService = {
       : localSpecs ?? { bathroomsCount: 0, bedrooms: [] };
     const includeSpecs = applyFallbackDefaults || !!localSpecs;
 
-    return {
+    const result: Partial<Record<string, unknown>> = {
       roomTypeID: model.roomTypeID,
       roomTypeName: model.presentation.roomTypeName,
-      roomTypePhotos: model.presentation.roomTypePhotos,
       maxGuests: model.presentation.maxGuests,
       pricing: {
         totalRate: localPricing?.totalRate ?? model.pricing.baseRate?.totalRate,
         ofertaDelMesRoomRate: localPricing?.ofertaDelMesRoomRate ?? ofertaDelMes?.roomRate,
       },
-      ...(includeSpecs
-        ? {
-            bedroomsCount: resolvedSpecs.bedrooms.length,
-            bathroomsCount: resolvedSpecs.bathroomsCount ?? 0,
-          }
-        : {}),
     };
+
+    if (includeSpecs) {
+      (result as any).bedroomsCount = resolvedSpecs.bedrooms.length;
+      (result as any).bathroomsCount = resolvedSpecs.bathroomsCount ?? 0;
+    }
+
+    // Always include `portada` (may be null) so clients receive the field consistently
+    (result as any).portada = localSpecs && localSpecs.portada ? localSpecs.portada : null;
+
+    // Include `portadaMenu` only when explicitly requested (detail responses)
+    if (options?.includePortadaMenu) {
+      (result as any).portadaMenu = localSpecs && localSpecs.portadaMenu ? localSpecs.portadaMenu : null;
+    }
+
+    if (!options?.portadaOnly) {
+      (result as any).roomTypePhotos = model.presentation.roomTypePhotos;
+    }
+
+    return result as RoomTypeReducedModel;
   },
 
   toReducedDetailModel(
@@ -570,14 +586,19 @@ export const RoomTypesShowService = {
           : buildDefaultLocalSpecs()
       : localSpecs ?? { bathroomsCount: 0, bedrooms: [] };
     const includeSpecs = applyFallbackDefaults || !!localSpecs;
-    const base = this.toReducedModel(model, localSpecs, { applyFallbackDefaults }, localPricing);
+    const base = this.toReducedModel(model, localSpecs, { applyFallbackDefaults, includePortadaMenu: options?.includePortadaMenu }, localPricing);
+
+    // For the detailed view we must NOT expose `portada` anymore; instead always expose `portadaMenu` (may be null)
+    const result: any = { ...base };
+    delete result.portada;
+    result.portadaMenu = localSpecs && localSpecs.portadaMenu ? localSpecs.portadaMenu : null;
 
     return {
-      ...base,
+      ...result,
       roomTypeDescription: model.presentation.roomTypeDescription,
       roomTypeFeatures: model.presentation.roomTypeFeatures,
       ...(includeSpecs ? { bedrooms: resolvedSpecs.bedrooms } : {}),
-    };
+    } as RoomTypeReducedDetailModel;
   },
 
   async listRoomTypesReducedWithPricing(params: {
@@ -717,7 +738,7 @@ export const RoomTypesShowService = {
     const specsIndex = await fetchRoomTypeLocalSpecsIndex(full.map((m) => m.roomTypeID));
     const pricingIndex = await fetchRoomTypeLocalPricingIndex(full.map((m) => m.roomTypeID));
 
-    return full.map((m) => this.toReducedModel(m, specsIndex.get(m.roomTypeID), undefined, pricingIndex.get(m.roomTypeID)));
+    return full.map((m) => this.toReducedModel(m, specsIndex.get(m.roomTypeID), { portadaOnly: true }, pricingIndex.get(m.roomTypeID)));
   },
 
   async getRoomTypeReducedDetailWithLocalPricing(params: {
@@ -766,8 +787,14 @@ export const RoomTypesShowService = {
       },
     };
 
+    const specsIndex = await fetchRoomTypeLocalSpecsIndex([params.roomTypeID]);
     const pricingIndex = await fetchRoomTypeLocalPricingIndex([params.roomTypeID]);
-    return this.toReducedDetailModel(model, undefined, { applyFallbackDefaults: false }, pricingIndex.get(params.roomTypeID));
+    return this.toReducedDetailModel(
+      model,
+      specsIndex.get(params.roomTypeID),
+      { applyFallbackDefaults: false, portadaOnly: true, includePortadaMenu: true },
+      pricingIndex.get(params.roomTypeID)
+    );
   },
 
   async getRoomTypeReducedDetailWithPricing(params: {

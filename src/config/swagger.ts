@@ -70,6 +70,7 @@ export const createSwaggerSpec = () => {
                     location: { type: "string" },
                   },
                 },
+                  portadaMenu: { type: "string", nullable: true, description: "URL de la imagen para menu (portadaMenu). Solo en detalle" },
               },
             },
           },
@@ -307,6 +308,8 @@ export const createSwaggerSpec = () => {
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-1.mp4"],
               },
+              portada: { type: "string", nullable: true, description: "URL de la imagen portada (imagen principal)", example: "https://storage.example.com/cover-main.jpg" },
+              portadaMenu: { type: "string", nullable: true, description: "URL de la imagen para menu (portadaMenu)", example: "https://storage.example.com/cover-menu.jpg" },
               portada_video: { type: "string", nullable: true, description: "URL de la imagen portada del video (solo una)", example: "https://storage.example.com/cover-1.jpg" },
               extraGalleryImages: {
                 type: "array",
@@ -347,9 +350,11 @@ export const createSwaggerSpec = () => {
               video_url: {
                 type: "array",
                 items: { type: "string" },
+                  portada: { type: "string", nullable: true, example: "https://storage.example.com/cover-main.jpg" },
                 example: ["https://storage.example.com/video-1.mp4"],
               },
               portada_video: { type: "string", nullable: true, example: "https://storage.example.com/cover-1.jpg" },
+              portadaMenu: { type: "string", nullable: true, example: "https://storage.example.com/cover-menu.jpg" },
               extraGalleryImages: {
                 type: "array",
                 items: { type: "string" },
@@ -386,7 +391,9 @@ export const createSwaggerSpec = () => {
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-2.mp4"],
               },
+              portada: { type: "string", nullable: true, example: "https://storage.example.com/cover-main-2.jpg" },
               portada_video: { type: "string", nullable: true, example: "https://storage.example.com/cover-2.jpg" },
+              portadaMenu: { type: "string", nullable: true, example: "https://storage.example.com/cover-menu-2.jpg" },
               extraGalleryImages: {
                 type: "array",
                 items: { type: "string" },
@@ -420,6 +427,8 @@ export const createSwaggerSpec = () => {
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-previo.mp4"],
               },
+              portada: { type: "string", description: "URL de portada (imagen principal) que se conserva (si existe)", nullable: true, example: "https://storage.example.com/cover-previo.jpg" },
+              portadaMenu: { type: "string", description: "URL de portadaMenu que se conserva (si existe)", nullable: true, example: "https://storage.example.com/cover-menu-previo.jpg" },
               portada_video: { type: "string", description: "URL de portada de video que se conserva (si existe)", nullable: true, example: "https://storage.example.com/cover-previo.jpg" },
               extraGalleryImages: {
                 type: "array",
@@ -465,6 +474,16 @@ export const createSwaggerSpec = () => {
                   "Archivos nuevos. En el form-data cada campo debe llamarse bedroomFiles[<key>] donde <key> es _id, clientKey o number",
                 items: { type: "string", format: "binary" },
               },
+              portadaImageFiles: {
+                type: "array",
+                description: "Imagen de portada principal (jpg/png). Se usará la primera imagen si se envían varias.",
+                items: { type: "string", format: "binary" },
+              },
+              portadaMenuImageFiles: {
+                type: "array",
+                description: "Imagen para menu (jpg/png). Se usará la primera imagen si se envían varias.",
+                items: { type: "string", format: "binary" },
+              },
               videoFiles: {
                 type: "array",
                 description: "Videos nuevos para anexar a video_url",
@@ -479,11 +498,11 @@ export const createSwaggerSpec = () => {
           },
           RoomTypeReduced: {
             type: "object",
-            required: ["roomTypeID", "roomTypeName", "roomTypePhotos", "bedroomsCount", "bathroomsCount", "pricing"],
+            required: ["roomTypeID", "roomTypeName", "bedroomsCount", "bathroomsCount", "pricing"],
             properties: {
               roomTypeID: { type: "string" },
               roomTypeName: { type: "string" },
-              roomTypePhotos: { type: "array", items: { type: "string" } },
+              portada: { type: "string", nullable: true, description: "URL de la imagen de portada (show-lite)", example: "https://storage.example.com/cover-main.jpg" },
               maxGuests: { type: "integer", nullable: true, minimum: 0 },
               bedroomsCount: { type: "integer", minimum: 0 },
               bathroomsCount: { type: "integer", minimum: 0 },

@@ -140,6 +140,8 @@ type BedroomInput = {
 };
 
 type UpdatePayload = {
+  portada?: string | null;
+  portadaMenu?: string | null;
   bathroomsCount?: number;
   condominioID?: string;
   bedrooms?: BedroomInput[];
@@ -181,6 +183,8 @@ type NormalizedFiles = {
   videoFiles: Express.Multer.File[];
   extraGalleryImageFiles: Express.Multer.File[];
   portadaVideoImageFiles: Express.Multer.File[];
+  portadaImageFiles: Express.Multer.File[];
+  portadaMenuImageFiles: Express.Multer.File[];
 };
 
 const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
@@ -188,6 +192,8 @@ const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
   const videoFiles: Express.Multer.File[] = [];
   const extraGalleryImageFiles: Express.Multer.File[] = [];
   const portadaVideoImageFiles: Express.Multer.File[] = [];
+  const portadaImageFiles: Express.Multer.File[] = [];
+  const portadaMenuImageFiles: Express.Multer.File[] = [];
   const fieldRegex = /^bedroomFiles\[(.+)\]$/;
 
   for (const file of files) {
@@ -203,6 +209,16 @@ const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
 
     if (file.fieldname === "portadaVideoImageFiles") {
       portadaVideoImageFiles.push(file);
+      continue;
+    }
+
+    if (file.fieldname === "portadaImageFiles") {
+      portadaImageFiles.push(file);
+      continue;
+    }
+
+    if (file.fieldname === "portadaMenuImageFiles") {
+      portadaMenuImageFiles.push(file);
       continue;
     }
 
@@ -224,7 +240,7 @@ const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
     bedroomFilesByKey.set(key, bucket);
   }
 
-  return { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles };
+  return { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles };
 };
 
 const normalizeBedrooms = (value: unknown): BedroomInput[] => {
@@ -336,7 +352,7 @@ export class RoomTypeLocalSpecsController {
         return;
       }
 
-      const { roomTypeID, bedrooms, bathroomsCount, condominioID, video_url, extraGalleryImages, portada_video, pricing } = req.body as {
+      const { roomTypeID, bedrooms, bathroomsCount, condominioID, video_url, extraGalleryImages, portada_video, portada, portadaMenu, pricing } = req.body as {
         roomTypeID: string;
         bathroomsCount: number;
         bedrooms: Array<{ number: number; description?: string; photos?: string[] }>;
@@ -344,6 +360,8 @@ export class RoomTypeLocalSpecsController {
         video_url?: string[];
         extraGalleryImages?: string[];
         portada_video?: string;
+        portada?: string;
+        portadaMenu?: string;
         pricing?: {
           totalRate?: number;
           ofertaDelMesRoomRate?: number;
@@ -354,16 +372,23 @@ export class RoomTypeLocalSpecsController {
       const normalizedExtraGalleryImages = normalizeStringArray(extraGalleryImages, "extraGalleryImages") ?? [];
       const normalizedPricing = normalizePricing(pricing, "pricing");
 
-      // manejar archivos multipart (opcional): portadaVideoImageFiles
+      // manejar archivos multipart (opcional): portadaVideoImageFiles + portadaImageFiles
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
       let portadaVideoImageFiles: Express.Multer.File[] = [];
+      let portadaImageFiles: Express.Multer.File[] = [];
+      let portadaMenuImageFiles: Express.Multer.File[] = [];
       if (files.length > 0) {
         const normalizedFiles = normalizeFileMap(files);
         portadaVideoImageFiles = normalizedFiles.portadaVideoImageFiles ?? [];
+        portadaImageFiles = normalizedFiles.portadaImageFiles ?? [];
+        portadaMenuImageFiles = normalizedFiles.portadaMenuImageFiles ?? [];
       }
 
       if (portadaVideoImageFiles.length > 0) {
         assertImageFiles(portadaVideoImageFiles, "portadaVideoImageFiles");
+      }
+      if (portadaMenuImageFiles.length > 0) {
+        assertImageFiles(portadaMenuImageFiles, "portadaMenuImageFiles");
       }
 
       let portada_video_value: string | null = typeof portada_video === "string" && portada_video.trim().length > 0 ? portada_video.trim() : null;
@@ -379,6 +404,34 @@ export class RoomTypeLocalSpecsController {
         portada_video_value = uploaded.url;
       }
 
+      // portada (imagen principal)
+      let portada_value: string | null = typeof portada === "string" && portada.trim().length > 0 ? portada.trim() : null;
+      if (portadaImageFiles.length > 0) {
+        const file = portadaImageFiles[0];
+        const uploaded = await SupabaseStorageService.uploadFile({
+          fileBuffer: file.buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          mediaKind: "image",
+        });
+        uploadedFileIds.push(uploaded.fileId);
+        portada_value = uploaded.url;
+      }
+
+      // portadaMenu (imagen para menu)
+      let portadaMenu_value: string | null = typeof portadaMenu === "string" && portadaMenu.trim().length > 0 ? portadaMenu.trim() : null;
+      if (portadaMenuImageFiles.length > 0) {
+        const file = portadaMenuImageFiles[0];
+        const uploaded = await SupabaseStorageService.uploadFile({
+          fileBuffer: file.buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          mediaKind: "image",
+        });
+        uploadedFileIds.push(uploaded.fileId);
+        portadaMenu_value = uploaded.url;
+      }
+
       const doc = await RoomTypeLocalSpecs.create({
         roomTypeID,
         bathroomsCount,
@@ -391,6 +444,8 @@ export class RoomTypeLocalSpecsController {
             }))
           : [],
         video_url: normalizedVideoUrls,
+        portada: portada_value,
+        portadaMenu: portadaMenu_value,
         portada_video: portada_video_value,
         extraGalleryImages: normalizedExtraGalleryImages,
         pricing: normalizedPricing,
@@ -463,13 +518,17 @@ export class RoomTypeLocalSpecsController {
       const videoUrls = normalizeStringArray(payload.video_url, "video_url");
       const extraGalleryImages = normalizeStringArray(payload.extraGalleryImages, "extraGalleryImages");
       const portadaVideoRaw = payload.portada_video;
+      const portadaRaw = payload.portada;
+      const portadaMenuRaw = payload.portadaMenu;
       const pricing = normalizePricing(payload.pricing, "pricing");
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
-      const { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles } = normalizeFileMap(files);
+      const { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles } = normalizeFileMap(files);
 
       assertVideoFiles(videoFiles, "videoFiles");
       assertImageFiles(extraGalleryImageFiles, "extraGalleryImageFiles");
       assertImageFiles(portadaVideoImageFiles, "portadaVideoImageFiles");
+      assertImageFiles(portadaImageFiles, "portadaImageFiles");
+      assertImageFiles(portadaMenuImageFiles, "portadaMenuImageFiles");
 
       if (
         bedrooms.length === 0 &&
@@ -479,7 +538,13 @@ export class RoomTypeLocalSpecsController {
         extraGalleryImages === undefined &&
         pricing === undefined &&
         videoFiles.length === 0 &&
-        extraGalleryImageFiles.length === 0
+        extraGalleryImageFiles.length === 0 &&
+        portadaImageFiles.length === 0 &&
+        portadaMenuImageFiles.length === 0 &&
+        portadaRaw === undefined &&
+        portadaMenuRaw === undefined &&
+        portadaVideoImageFiles.length === 0 &&
+        portadaVideoRaw === undefined
       ) {
         res
           .status(400)
@@ -508,6 +573,8 @@ export class RoomTypeLocalSpecsController {
         video_url: string[];
         extraGalleryImages: string[];
         portada_video?: string | null;
+        portada?: string | null;
+        portadaMenu?: string | null;
         pricing: {
           totalRate?: number;
           ofertaDelMesRoomRate?: number;
@@ -593,6 +660,54 @@ export class RoomTypeLocalSpecsController {
           update.portada_video = trimmed.length > 0 ? trimmed : null;
         } else {
           throw toHttpError(400, "portada_video debe ser una cadena o null");
+        }
+      }
+
+      // portada (imagen principal)
+      if (portadaImageFiles.length > 0) {
+        const file = portadaImageFiles[0];
+        const uploaded = await SupabaseStorageService.uploadFile({
+          fileBuffer: file.buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          mediaKind: "image",
+        });
+        uploadedFileIds.push(uploaded.fileId);
+        update.portada = uploaded.url;
+      }
+
+      // portadaMenu (imagen para menu)
+      if (portadaMenuImageFiles.length > 0) {
+        const file = portadaMenuImageFiles[0];
+        const uploaded = await SupabaseStorageService.uploadFile({
+          fileBuffer: file.buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          mediaKind: "image",
+        });
+        uploadedFileIds.push(uploaded.fileId);
+        update.portadaMenu = uploaded.url;
+      }
+
+      if (portadaMenuImageFiles.length === 0 && portadaMenuRaw !== undefined) {
+        if (portadaMenuRaw === null) {
+          update.portadaMenu = null;
+        } else if (typeof portadaMenuRaw === "string") {
+          const trimmed = portadaMenuRaw.trim();
+          update.portadaMenu = trimmed.length > 0 ? trimmed : null;
+        } else {
+          throw toHttpError(400, "portadaMenu debe ser una cadena o null");
+        }
+      }
+
+      if (portadaImageFiles.length === 0 && portadaRaw !== undefined) {
+        if (portadaRaw === null) {
+          update.portada = null;
+        } else if (typeof portadaRaw === "string") {
+          const trimmed = portadaRaw.trim();
+          update.portada = trimmed.length > 0 ? trimmed : null;
+        } else {
+          throw toHttpError(400, "portada debe ser una cadena o null");
         }
       }
 

@@ -3,7 +3,8 @@ import type { RoomTypeBedroomSpec } from "./RoomTypeLocalSpecs";
 export type RoomTypeReducedModel = {
   roomTypeID: string;
   roomTypeName: string;
-  roomTypePhotos: string[];
+  roomTypePhotos?: string[];
+  portada?: string | null;
   maxGuests?: number;
   bedroomsCount?: number;
   bathroomsCount?: number;
@@ -17,4 +18,5 @@ export type RoomTypeReducedDetailModel = RoomTypeReducedModel & {
   roomTypeDescription?: string;
   roomTypeFeatures?: string[];
   bedrooms?: RoomTypeBedroomSpec[];
+  portadaMenu?: string | null;
 };
