@@ -221,10 +221,6 @@ const enforceImageConstraints = ({
     throw Object.assign(new Error(`${contextLabel}: maxImageBytes invalido`), { status: 400 });
   }
 
-  if (!Number.isFinite(maxImageSidePx) || maxImageSidePx <= 0) {
-    throw Object.assign(new Error(`${contextLabel}: maxImageSidePx invalido`), { status: 400 });
-  }
-
   if (buffer.length > maxImageBytes) {
     throw Object.assign(new Error(`${contextLabel}: Excede bytes`), { status: 400 });
   }
@@ -234,8 +230,11 @@ const enforceImageConstraints = ({
     throw Object.assign(new Error("Formato no soportado"), { status: 400 });
   }
 
-  if (Math.max(dims.width, dims.height) > maxImageSidePx) {
-    throw Object.assign(new Error("Excede dimensiones px"), { status: 400 });
+  // Si `maxImageSidePx` está definido y > 0, se aplica; si es 0 (o <=0) no hay restricción de dimensiones.
+  if (Number.isFinite(maxImageSidePx) && maxImageSidePx > 0) {
+    if (Math.max(dims.width, dims.height) > maxImageSidePx) {
+      throw Object.assign(new Error("Excede dimensiones px"), { status: 400 });
+    }
   }
 
   return dims;

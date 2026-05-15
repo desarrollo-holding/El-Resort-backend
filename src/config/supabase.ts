@@ -13,8 +13,8 @@ export const getSupabaseStorageConfigFromEnv = (): SupabaseStorageConfig => {
   const supabaseServiceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   const bucket = (process.env.SUPABASE_BUCKET || "evidencias").trim() || "evidencias";
 
-  const maxImageBytes = Number(process.env.SUPABASE_MAX_IMAGE_BYTES || 450 * 1024);
-  const maxImageSidePx = Number(process.env.SUPABASE_MAX_IMAGE_SIDE_PX || 1400);
+  const maxImageBytes = Number(process.env.SUPABASE_MAX_IMAGE_BYTES ?? 1 * 1024 * 1024);
+  const maxImageSidePx = Number(process.env.SUPABASE_MAX_IMAGE_SIDE_PX ?? 0);
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new Error("SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no definidos");
@@ -24,8 +24,8 @@ export const getSupabaseStorageConfigFromEnv = (): SupabaseStorageConfig => {
     throw new Error("SUPABASE_MAX_IMAGE_BYTES debe ser un numero > 0");
   }
 
-  if (!Number.isFinite(maxImageSidePx) || maxImageSidePx <= 0) {
-    throw new Error("SUPABASE_MAX_IMAGE_SIDE_PX debe ser un numero > 0");
+  if (!Number.isFinite(maxImageSidePx) || maxImageSidePx < 0) {
+    throw new Error("SUPABASE_MAX_IMAGE_SIDE_PX debe ser un numero >= 0");
   }
 
   return {

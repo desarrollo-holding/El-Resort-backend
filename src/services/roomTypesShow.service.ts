@@ -260,7 +260,13 @@ const fetchRatePlansIndex = async (params: {
   return index;
 };
 
-type LocalSpecsNormalized = { bathroomsCount: number; bedrooms: Array<{ number: number; description?: string; photos: string[] }>; portada?: string | null; portadaMenu?: string | null };
+type LocalSpecsNormalized = {
+  bathroomsCount: number;
+  bedrooms: Array<{ number: number; description?: string; photos: string[] }>;
+  portada?: string | null;
+  portadaMenu?: string | null;
+  orden?: number;
+};
 type LocalPricingNormalized = { totalRate?: number; ofertaDelMesRoomRate?: number };
 type ReducedMappingOptions = { applyFallbackDefaults?: boolean; portadaOnly?: boolean; includePortadaMenu?: boolean };
 
@@ -294,7 +300,7 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
   if (uniqueIDs.length === 0) return index;
 
   const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs } })
-    .select({ roomTypeID: 1, bathroomsCount: 1, bedrooms: 1, portada: 1, portadaMenu: 1 })
+    .select({ roomTypeID: 1, bathroomsCount: 1, bedrooms: 1, portada: 1, portadaMenu: 1, orden: 1 })
     .lean();
 
   for (const doc of docs) {
@@ -316,7 +322,8 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
     const portada: string | null = typeof rawPortada === "string" ? rawPortada : null;
     const rawPortadaMenu = (doc as any).portadaMenu;
     const portadaMenu: string | null = typeof rawPortadaMenu === "string" ? rawPortadaMenu : null;
-    index.set(doc.roomTypeID, { bathroomsCount, bedrooms: derivedBedrooms, portada, portadaMenu });
+    const orden = typeof (doc as any).orden === "number" && Number.isFinite((doc as any).orden) ? (doc as any).orden : undefined;
+    index.set(doc.roomTypeID, { bathroomsCount, bedrooms: derivedBedrooms, portada, portadaMenu, orden });
   }
 
   return index;
@@ -609,6 +616,16 @@ export const RoomTypesShowService = {
   }): Promise<RoomTypeReducedModel[]> {
     const full = await this.listRoomTypesWithPricing(params);
     const specsIndex = await fetchRoomTypeLocalSpecsIndex(full.map((m) => m.roomTypeID));
+    // Ordenar por `orden` ascendente; los que no tengan `orden` quedan al final
+    full.sort((a, b) => {
+      const oa = specsIndex.get(a.roomTypeID)?.orden;
+      const ob = specsIndex.get(b.roomTypeID)?.orden;
+      const va = Number.isFinite(oa as number) ? (oa as number) : Infinity;
+      const vb = Number.isFinite(ob as number) ? (ob as number) : Infinity;
+      if (va !== vb) return va - vb;
+      return a.roomTypeID.localeCompare(b.roomTypeID);
+    });
+
     return full.map((m) => this.toReducedModel(m, specsIndex.get(m.roomTypeID)));
   },
 
@@ -670,6 +687,16 @@ export const RoomTypesShowService = {
 
     const nights = getNightsBetween(params.startDate, params.endDate);
     const specsIndex = await fetchRoomTypeLocalSpecsIndex(full.map((m) => m.roomTypeID));
+
+    // Ordenar por `orden` ascendente; los que no tengan `orden` quedan al final
+    full.sort((a, b) => {
+      const oa = specsIndex.get(a.roomTypeID)?.orden;
+      const ob = specsIndex.get(b.roomTypeID)?.orden;
+      const va = Number.isFinite(oa as number) ? (oa as number) : Infinity;
+      const vb = Number.isFinite(ob as number) ? (ob as number) : Infinity;
+      if (va !== vb) return va - vb;
+      return a.roomTypeID.localeCompare(b.roomTypeID);
+    });
 
     return full.map((m) => {
       const pricing = pricingIndex.get(m.roomTypeID);
@@ -737,6 +764,16 @@ export const RoomTypesShowService = {
 
     const specsIndex = await fetchRoomTypeLocalSpecsIndex(full.map((m) => m.roomTypeID));
     const pricingIndex = await fetchRoomTypeLocalPricingIndex(full.map((m) => m.roomTypeID));
+
+    // Ordenar por `orden` ascendente; los que no tengan `orden` quedan al final
+    full.sort((a, b) => {
+      const oa = specsIndex.get(a.roomTypeID)?.orden;
+      const ob = specsIndex.get(b.roomTypeID)?.orden;
+      const va = Number.isFinite(oa as number) ? (oa as number) : Infinity;
+      const vb = Number.isFinite(ob as number) ? (ob as number) : Infinity;
+      if (va !== vb) return va - vb;
+      return a.roomTypeID.localeCompare(b.roomTypeID);
+    });
 
     return full.map((m) => this.toReducedModel(m, specsIndex.get(m.roomTypeID), { portadaOnly: true }, pricingIndex.get(m.roomTypeID)));
   },

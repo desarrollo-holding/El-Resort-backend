@@ -9,6 +9,27 @@ import { hasRole } from "../middleware/hasRole";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { files: 50 } });
 
+// Bulk update of `orden` for multiple roomTypeIDs
+router.put(
+  "/orden",
+  // Accept either a JSON array or an object with numeric keys (0,1,...)
+  body().custom((value, { req }) => {
+    const body = req.body;
+    if (Array.isArray(body)) return true;
+    if (body && typeof body === "object") {
+      const keys = Object.keys(body);
+      if (keys.length === 0) throw new Error("body debe ser un array");
+      const allNumeric = keys.every((k) => /^\d+$/.test(k));
+      if (allNumeric) return true;
+    }
+    throw new Error("body debe ser un array");
+  }),
+  handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
+  RoomTypeLocalSpecsController.updateOrderBulk
+);
+
 router.post(
   "/",
   body("roomTypeID").isString().notEmpty().withMessage("roomTypeID es requerido"),

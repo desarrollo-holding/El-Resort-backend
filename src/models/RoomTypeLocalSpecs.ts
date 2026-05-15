@@ -9,6 +9,7 @@ export type RoomTypeBedroomSpec = {
 export type RoomTypeLocalSpecsType = Document & {
   roomTypeID: string;
   bathroomsCount: number;
+  orden?: number;
   bedrooms: RoomTypeBedroomSpec[];
   portada?: string | null;
   portadaMenu?: string | null;
@@ -71,6 +72,11 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       type: [String],
       required: true,
       default: [],
+    },
+    orden: {
+      type: Number,
+      required: false,
+      index: true,
     },
     pricing: {
       totalRate: { type: Number, required: false, min: 0 },

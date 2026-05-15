@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import RoomTypeLocalSpecs from "../models/RoomTypeLocalSpecs";
 import mongoose from "mongoose";
+import type { AnyBulkWriteOperation } from "mongoose";
 import { SupabaseStorageService } from "../services/supabaseStorage.service";
 import { CondominiosService } from "../services/condominios.service";
 import { parseIdiomaQuery } from "../utils/idioma";
@@ -749,6 +750,96 @@ export class RoomTypeLocalSpecsController {
         return;
       }
 
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
+  };
+
+  /**
+   * @openapi
+   * /api/room-type-specs/orden:
+   *   put:
+   *     security: [{ bearerAuth: [] }]
+   *     tags: [RoomTypeSpecs]
+   *     summary: Actualizar en cascada el campo `orden` de varios RoomTypeLocalSpecs
+   *     description: |
+   *       Recibe un array de objetos `{ roomTypeID, orden }`. Establece el `orden` proporcionado
+   *       para cada `roomTypeID` y elimina `orden` de los registros que no estén en la lista.
+   *       Esto sirve para controlar el orden de visualización en el endpoint de show rooms (menor -> mayor).
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: array
+   *             items:
+   *               type: object
+   *               required: [roomTypeID, orden]
+   *               properties:
+   *                 roomTypeID: { type: string }
+   *                 orden: { type: integer, minimum: 1 }
+   *     responses:
+   *       200:
+   *         description: OK
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success: { type: boolean }
+   */
+  static updateOrderBulk = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      // Normalizar payload: aceptar array o object indexado numericamente ("0": {...})
+      let payloadRaw: unknown = req.body;
+      if (!Array.isArray(payloadRaw) && payloadRaw && typeof payloadRaw === "object") {
+        const keys = Object.keys(payloadRaw as Record<string, unknown>);
+        const numericKeys = keys.filter((k) => /^\d+$/.test(k)).sort((a, b) => Number(a) - Number(b));
+        if (numericKeys.length > 0 && numericKeys.length === keys.length) {
+          payloadRaw = numericKeys.map((k) => (payloadRaw as Record<string, unknown>)[k]);
+        }
+      }
+
+      const payload = payloadRaw as Array<{ roomTypeID: string; orden: number }>;
+      if (!Array.isArray(payload) || payload.length === 0) {
+        res.status(400).json({ error: "Debe enviar un array con objetos { roomTypeID, orden }" });
+        return;
+      }
+
+      const seen = new Set<string>();
+      const operations: AnyBulkWriteOperation<any>[] = [];
+      const ids: string[] = [];
+
+      for (const item of payload) {
+        if (!item || typeof item !== "object") continue;
+        const roomTypeID = typeof item.roomTypeID === "string" ? item.roomTypeID.trim() : "";
+        const orden = item.orden;
+        if (!roomTypeID) continue;
+        if (!Number.isInteger(orden) || orden < 1) {
+          res.status(400).json({ error: "orden debe ser un entero >= 1" });
+          return;
+        }
+        if (seen.has(roomTypeID)) continue;
+        seen.add(roomTypeID);
+        ids.push(roomTypeID);
+
+        operations.push({ updateOne: { filter: { roomTypeID }, update: { $set: { orden } } } });
+      }
+
+      // Primero aplicar los updates especificados
+      if (operations.length > 0) {
+        await RoomTypeLocalSpecs.bulkWrite(operations, { ordered: false });
+      }
+
+      // Luego, quitar orden de los que no fueron incluidos (se ponen al final)
+      await RoomTypeLocalSpecs.updateMany({ roomTypeID: { $nin: ids } }, { $unset: { orden: "" } });
+
+      res.json({ success: true });
+    } catch (error) {
       res.status(500).json({ error: "Error interno del servidor" });
     }
   };
