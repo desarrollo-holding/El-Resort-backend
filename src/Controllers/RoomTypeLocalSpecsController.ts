@@ -329,8 +329,8 @@ const normalizePricing = (
 const assertImageFiles = (files: Express.Multer.File[], fieldName: string): void => {
   for (const file of files) {
     const mimeType = typeof file.mimetype === "string" ? file.mimetype.toLowerCase() : "";
-    if (mimeType !== "image/jpeg" && mimeType !== "image/png") {
-      throw toHttpError(400, `${fieldName} solo acepta archivos jpg/png`);
+    if (!mimeType.startsWith("image/")) {
+      throw toHttpError(400, `${fieldName} solo acepta archivos de imagen (png, jpg, webp, svg, etc.)`);
     }
   }
 };
