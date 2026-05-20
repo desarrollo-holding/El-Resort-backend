@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
 import multer from "multer";
+import { createMemoryUpload } from "../config/upload";
 import { ExtraController } from "../Controllers/ExtraController";
 import { handleInputErrors } from "../middleware/validation";
 import { authenticate } from "../middleware/auth";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { files: 30 } });
+const upload = createMemoryUpload(30);
 
 //Crear extra 
 router.post(

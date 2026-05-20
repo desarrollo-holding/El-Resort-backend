@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
 import multer from "multer";
+import { createMemoryUpload } from "../config/upload";
 import { RoomTypeLocalSpecsController } from "../Controllers/RoomTypeLocalSpecsController";
 import { handleInputErrors } from "../middleware/validation";
 import { authenticate } from "../middleware/auth";
 import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { files: 50 } });
+const upload = createMemoryUpload(50);
 
 // Bulk update of `orden` for multiple roomTypeIDs
 router.put(

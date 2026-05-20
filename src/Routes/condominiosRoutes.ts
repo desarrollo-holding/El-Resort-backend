@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
 import multer from "multer";
+import { createMemoryUpload } from "../config/upload";
 import { CondominiosController } from "../Controllers/CondominiosController";
 import { handleInputErrors } from "../middleware/validation";
 import { authenticate } from "../middleware/auth";
 import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { files: 1 } });
+const upload = createMemoryUpload(1);
 
 router.post(
   "/",

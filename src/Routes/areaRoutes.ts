@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { body, param, query } from "express-validator";
 import multer from "multer";
+import { createMemoryUpload } from "../config/upload";
 import { AreaController } from "../Controllers/AreaController";
 import { handleInputErrors } from "../middleware/validation";
 import { AREA_CATEGORIAS } from "../models/Area";
@@ -8,7 +9,7 @@ import { authenticate } from "../middleware/auth";
 import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { files: 30 } });
+const upload = createMemoryUpload(30);
 
 // Obtener todas las áreas
 router.get(
