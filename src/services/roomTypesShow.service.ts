@@ -265,6 +265,7 @@ type LocalSpecsNormalized = {
   bedrooms: Array<{ number: number; description?: string; photos: string[] }>;
   portada?: string | null;
   portadaMenu?: string | null;
+  posicion_fotos_portadas?: Record<string, unknown> | null;
   orden?: number;
 };
 type LocalPricingNormalized = { totalRate?: number; ofertaDelMesRoomRate?: number };
@@ -300,7 +301,7 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
   if (uniqueIDs.length === 0) return index;
 
   const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs } })
-    .select({ roomTypeID: 1, bathroomsCount: 1, bedrooms: 1, portada: 1, portadaMenu: 1, orden: 1 })
+    .select({ roomTypeID: 1, bathroomsCount: 1, bedrooms: 1, portada: 1, portadaMenu: 1, posicion_fotos_portadas: 1, orden: 1 })
     .lean();
 
   for (const doc of docs) {
@@ -322,8 +323,10 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
     const portada: string | null = typeof rawPortada === "string" ? rawPortada : null;
     const rawPortadaMenu = (doc as any).portadaMenu;
     const portadaMenu: string | null = typeof rawPortadaMenu === "string" ? rawPortadaMenu : null;
+    const rawPosicionFotos = (doc as any).posicion_fotos_portadas;
+    const posicion_fotos_portadas: Record<string, unknown> | null = rawPosicionFotos && typeof rawPosicionFotos === "object" && !Array.isArray(rawPosicionFotos) ? (rawPosicionFotos as Record<string, unknown>) : null;
     const orden = typeof (doc as any).orden === "number" && Number.isFinite((doc as any).orden) ? (doc as any).orden : undefined;
-    index.set(doc.roomTypeID, { bathroomsCount, bedrooms: derivedBedrooms, portada, portadaMenu, orden });
+    index.set(doc.roomTypeID, { bathroomsCount, bedrooms: derivedBedrooms, portada, portadaMenu, posicion_fotos_portadas, orden });
   }
 
   return index;
@@ -566,6 +569,9 @@ export const RoomTypesShowService = {
     // Always include `portada` (may be null) so clients receive the field consistently
     (result as any).portada = localSpecs && localSpecs.portada ? localSpecs.portada : null;
 
+    // Include posicion_fotos_portadas (may be null)
+    (result as any).posicion_fotos_portadas = localSpecs && (localSpecs as any).posicion_fotos_portadas ? (localSpecs as any).posicion_fotos_portadas : null;
+
     // Include `portadaMenu` only when explicitly requested (detail responses)
     if (options?.includePortadaMenu) {
       (result as any).portadaMenu = localSpecs && localSpecs.portadaMenu ? localSpecs.portadaMenu : null;
@@ -599,6 +605,7 @@ export const RoomTypesShowService = {
     const result: any = { ...base };
     delete result.portada;
     result.portadaMenu = localSpecs && localSpecs.portadaMenu ? localSpecs.portadaMenu : null;
+    result.posicion_fotos_portadas = localSpecs && (localSpecs as any).posicion_fotos_portadas ? (localSpecs as any).posicion_fotos_portadas : null;
 
     return {
       ...result,

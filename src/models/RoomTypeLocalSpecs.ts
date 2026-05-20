@@ -13,6 +13,7 @@ export type RoomTypeLocalSpecsType = Document & {
   bedrooms: RoomTypeBedroomSpec[];
   portada?: string | null;
   portadaMenu?: string | null;
+  posicion_fotos_portadas?: Record<string, unknown> | null;
   video_url: string[];
   portada_video?: string | null;
   extraGalleryImages: string[];
@@ -72,6 +73,11 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       type: [String],
       required: true,
       default: [],
+    },
+    posicion_fotos_portadas: {
+      type: Schema.Types.Mixed,
+      required: false,
+      default: null,
     },
     orden: {
       type: Number,

@@ -153,6 +153,7 @@ type UpdatePayload = {
     totalRate?: number;
     ofertaDelMesRoomRate?: number;
   };
+  posicion_fotos_portadas?: Record<string, unknown> | null;
 };
 
 const toHttpError = (status: number, message: string): Error & { status: number } => {
@@ -353,7 +354,7 @@ export class RoomTypeLocalSpecsController {
         return;
       }
 
-      const { roomTypeID, bedrooms, bathroomsCount, condominioID, video_url, extraGalleryImages, portada_video, portada, portadaMenu, pricing } = req.body as {
+      const { roomTypeID, bedrooms, bathroomsCount, condominioID, video_url, extraGalleryImages, portada_video, portada, portadaMenu, pricing, posicion_fotos_portadas } = req.body as {
         roomTypeID: string;
         bathroomsCount: number;
         bedrooms: Array<{ number: number; description?: string; photos?: string[] }>;
@@ -367,11 +368,25 @@ export class RoomTypeLocalSpecsController {
           totalRate?: number;
           ofertaDelMesRoomRate?: number;
         };
+        posicion_fotos_portadas?: Record<string, unknown> | null;
       };
 
       const normalizedVideoUrls = normalizeStringArray(video_url, "video_url") ?? [];
       const normalizedExtraGalleryImages = normalizeStringArray(extraGalleryImages, "extraGalleryImages") ?? [];
       const normalizedPricing = normalizePricing(pricing, "pricing");
+
+      // Normalizar posicion_fotos_portadas (permitir objeto o null)
+      let normalizedPosicionFotos: Record<string, unknown> | null | undefined = undefined;
+      const rawPosicion = (posicion_fotos_portadas as unknown) as unknown;
+      if (rawPosicion !== undefined) {
+        if (rawPosicion === null) {
+          normalizedPosicionFotos = null;
+        } else if (rawPosicion && typeof rawPosicion === "object" && !Array.isArray(rawPosicion)) {
+          normalizedPosicionFotos = rawPosicion as Record<string, unknown>;
+        } else {
+          throw toHttpError(400, "posicion_fotos_portadas debe ser un objeto o null");
+        }
+      }
 
       // manejar archivos multipart (opcional): portadaVideoImageFiles + portadaImageFiles
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
@@ -450,6 +465,7 @@ export class RoomTypeLocalSpecsController {
         portada_video: portada_video_value,
         extraGalleryImages: normalizedExtraGalleryImages,
         pricing: normalizedPricing,
+        posicion_fotos_portadas: normalizedPosicionFotos,
       });
       res.status(201).json({ success: true, data: doc });
     } catch (error) {
@@ -726,6 +742,18 @@ export class RoomTypeLocalSpecsController {
         }
 
         update.extraGalleryImages = Array.from(new Set([...(extraGalleryImages ?? []), ...uploadedImageUrls]));
+      }
+
+      // posicion_fotos_portadas: aceptar objeto o null si se envió en payload
+      const posicionFotosRaw = (payload as any).posicion_fotos_portadas;
+      if (posicionFotosRaw !== undefined) {
+        if (posicionFotosRaw === null) {
+          (update as any).posicion_fotos_portadas = null;
+        } else if (posicionFotosRaw && typeof posicionFotosRaw === "object" && !Array.isArray(posicionFotosRaw)) {
+          (update as any).posicion_fotos_portadas = posicionFotosRaw as Record<string, unknown>;
+        } else {
+          throw toHttpError(400, "posicion_fotos_portadas debe ser un objeto o null");
+        }
       }
 
       const doc = await RoomTypeLocalSpecs.findOneAndUpdate({ roomTypeID }, update, {

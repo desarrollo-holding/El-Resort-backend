@@ -5,6 +5,7 @@ export type RoomTypeReducedModel = {
   roomTypeName: string;
   roomTypePhotos?: string[];
   portada?: string | null;
+  posicion_fotos_portadas?: Record<string, unknown> | null;
   maxGuests?: number;
   bedroomsCount?: number;
   bathroomsCount?: number;
