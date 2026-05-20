@@ -13,7 +13,7 @@ export const getSupabaseStorageConfigFromEnv = (): SupabaseStorageConfig => {
   const supabaseServiceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   const bucket = (process.env.SUPABASE_BUCKET || "evidencias").trim() || "evidencias";
 
-  const maxImageBytes = Number(process.env.SUPABASE_MAX_IMAGE_BYTES ?? 1 * 1024 * 1024);
+  const maxImageBytes = Number(process.env.SUPABASE_MAX_IMAGE_BYTES ?? 20 * 1024 * 1024);
   const maxImageSidePx = Number(process.env.SUPABASE_MAX_IMAGE_SIDE_PX ?? 0);
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
