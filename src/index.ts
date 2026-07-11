@@ -1,5 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config(); 
 import colors from "colors";
 import app from "./app";
+
 
 const requestedPort = Number(process.env.PORT || 4000);
 const maxRetries = 10;
