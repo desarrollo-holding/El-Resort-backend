@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { LANDING_MEDIA_TIPOS, type LandingMediaTipo } from "../models/LandingMedia";
 import { LandingMediaService } from "../services/landingMedia.service";
-import { SupabaseStorageService } from "../services/supabaseStorage.service";
+import { GcsStorageService } from "../services/csStorage.service";
 
 type JsonRecord = Record<string, unknown>;
 type JsonLike = null | boolean | number | string | JsonLike[] | JsonRecord;
@@ -86,7 +86,7 @@ const normalizeJsonMediaNodes = async (
   value: JsonLike,
   filesByKey: Map<string, Express.Multer.File[]>,
   uploadedFileIds: string[]
-): Promise<JsonLike> => {
+): Promise<JsonLike> => {  console.log('🚀 [normalizeJsonMediaNodes] Entrando a la función. Valor recibido:', JSON.stringify(value, null, 2).substring(0, 300) + '...');
   if (Array.isArray(value)) {
     const normalizedItems = await Promise.all(value.map((item) => normalizeJsonMediaNodes(item as JsonLike, filesByKey, uploadedFileIds)));
     return normalizedItems;
@@ -115,12 +115,22 @@ const normalizeJsonMediaNodes = async (
 
       const file = files[0];
       const requestedKind = detectMediaKind({ src: normalizedSrcInput, currentKind: value.kind });
-      const uploaded = await SupabaseStorageService.uploadFile({
-        fileBuffer: file.buffer,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        mediaKind: requestedKind,
-      });
+   console.log('🔴 [CONTROLLER] Antes de llamar a GcsStorageService.uploadFile');
+console.log('🔴 [CONTROLLER] File info:', {
+  originalname: file.originalname,
+  mimetype: file.mimetype,
+  size: file.size
+});
+
+const uploaded = await GcsStorageService.uploadFile({
+  fileBuffer: file.buffer,
+  originalName: file.originalname,
+  mimeType: file.mimetype,
+  mediaKind: requestedKind,
+  imageConstraints: undefined,
+});
+
+console.log('🔴 [CONTROLLER] Después de upload. Resultado:', uploaded);
 
       uploadedFileIds.push(uploaded.fileId);
       finalSrc = uploaded.url;
@@ -629,8 +639,9 @@ export class LandingMediaController {
       const created = await LandingMediaService.create({ tipo, nombre, sectionId, json: normalizedJson });
       res.status(201).json({ success: true, data: created });
     } catch (error) {
+      console.error('🚨 [CONTROLLER ERROR] Error al actualizar:', error);
       if (uploadedFileIds.length > 0) {
-        await Promise.allSettled(uploadedFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+       await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
       }
 
       if (error && typeof error === "object" && (error as { code?: unknown }).code === 11000) {
@@ -668,13 +679,13 @@ export class LandingMediaController {
       const expiresIn = parsePositiveIntQuery(req.query.expiresIn, "expiresIn", 3600);
       const prefix = typeof req.query.prefix === "string" ? req.query.prefix : "";
 
-      const data = await SupabaseStorageService.listFilesWithUrls({
-        page,
-        pageSize,
-        prefix,
-        signed,
-        expiresIn,
-      });
+     const data = await GcsStorageService.listFilesWithUrls({
+  page,
+  pageSize,
+  prefix,
+  signed,
+  expiresIn,
+});
 
       res.json({ success: true, data });
     } catch (error) {
@@ -687,7 +698,7 @@ export class LandingMediaController {
   static deleteStorageFiles = async (req: Request, res: Response): Promise<void> => {
     try {
       const fileIds = parseStorageDeletePaths(req.body);
-      const data = await SupabaseStorageService.deleteFiles({ fileIds });
+      const data = await GcsStorageService.deleteFiles({ fileIds });
 
       res.json({ success: true, data });
     } catch (error) {
@@ -771,8 +782,10 @@ export class LandingMediaController {
         sectionId?: string | null;
         json?: JsonLike;
       } = {};
-
+      console.log('📦 [UPDATE] payload.json completo:', JSON.stringify(payload.json, null, 2));
+      console.log('📁 [UPDATE] Claves de archivos recibidos:', Array.from(filesByKey.keys()));
       if (payload.json !== undefined) {
+        
         updatePayload.json = await normalizeJsonMediaNodes(parseJsonField(payload.json), filesByKey, uploadedFileIds);
       }
 
@@ -810,8 +823,9 @@ export class LandingMediaController {
 
       res.json({ success: true, data: updated });
     } catch (error) {
+      console.error('🚨 [CONTROLLER ERROR] Error al actualizar:', error);
       if (uploadedFileIds.length > 0) {
-        await Promise.allSettled(uploadedFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+      await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
       }
 
       if (error && typeof error === "object" && (error as { code?: unknown }).code === 11000) {
