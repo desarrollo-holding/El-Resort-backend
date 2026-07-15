@@ -144,6 +144,7 @@ type UpdatePayload = {
   portada?: string | null;
   portadaMenu?: string | null;
   bathroomsCount?: number;
+  titleColor?: string | null;
   condominioID?: string;
   bedrooms?: BedroomInput[];
   video_url?: string[];
@@ -354,9 +355,10 @@ export class RoomTypeLocalSpecsController {
         return;
       }
 
-      const { roomTypeID, bedrooms, bathroomsCount, condominioID, video_url, extraGalleryImages, portada_video, portada, portadaMenu, pricing, posicion_fotos_portadas } = req.body as {
+      const { roomTypeID, bedrooms, bathroomsCount, titleColor, condominioID, video_url, extraGalleryImages, portada_video, portada, portadaMenu, pricing, posicion_fotos_portadas } = req.body as {
         roomTypeID: string;
         bathroomsCount: number;
+        titleColor?: string | null;
         bedrooms: Array<{ number: number; description?: string; photos?: string[] }>;
         condominioID?: string;
         video_url?: string[];
@@ -451,6 +453,7 @@ export class RoomTypeLocalSpecsController {
       const doc = await RoomTypeLocalSpecs.create({
         roomTypeID,
         bathroomsCount,
+        titleColor: typeof titleColor === "string" ? titleColor : null,
         condominioID: typeof condominioID === "string" ? new mongoose.Types.ObjectId(condominioID) : undefined,
         bedrooms: Array.isArray(bedrooms)
           ? bedrooms.map((b) => ({
@@ -530,6 +533,7 @@ export class RoomTypeLocalSpecsController {
 
       const payload = normalizePayload(req);
       const bathroomsCount = payload.bathroomsCount;
+      const titleColor = payload.titleColor;
       const condominioID = payload.condominioID;
       const bedrooms = normalizeBedrooms(payload.bedrooms);
       const videoUrls = normalizeStringArray(payload.video_url, "video_url");
@@ -550,6 +554,7 @@ export class RoomTypeLocalSpecsController {
       if (
         bedrooms.length === 0 &&
         bathroomsCount === undefined &&
+        titleColor === undefined &&
         condominioID === undefined &&
         videoUrls === undefined &&
         extraGalleryImages === undefined &&
@@ -565,7 +570,7 @@ export class RoomTypeLocalSpecsController {
       ) {
         res
           .status(400)
-          .json({ error: "Debes enviar bedrooms y/o bathroomsCount y/o condominioID y/o video_url y/o extraGalleryImages y/o pricing" });
+          .json({ error: "Debes enviar bedrooms y/o bathroomsCount y/o titleColor y/o condominioID y/o video_url y/o extraGalleryImages y/o pricing" });
         return;
       }
 
@@ -585,6 +590,7 @@ export class RoomTypeLocalSpecsController {
 
       const update: Partial<{
         bathroomsCount: number;
+        titleColor: string | null;
         condominioID: mongoose.Types.ObjectId;
         bedrooms: Array<{ number: number; description?: string; photos: string[] }>;
         video_url: string[];
@@ -599,6 +605,7 @@ export class RoomTypeLocalSpecsController {
       }> = {};
 
       if (bathroomsCount !== undefined) update.bathroomsCount = bathroomsCount;
+      if (titleColor !== undefined) update.titleColor = typeof titleColor === "string" ? titleColor : null;
       if (condominioID !== undefined) update.condominioID = new mongoose.Types.ObjectId(condominioID);
       if (pricing !== undefined) update.pricing = pricing;
 
