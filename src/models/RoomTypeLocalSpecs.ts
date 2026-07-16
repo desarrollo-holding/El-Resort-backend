@@ -11,6 +11,7 @@ export type RoomTypeLocalSpecsType = Document & {
   bathroomsCount: number;
   titleColor?: string | null;
   orden?: number;
+  isActive: boolean;
   bedrooms: RoomTypeBedroomSpec[];
   portada?: string | null;
   portadaMenu?: string | null;
@@ -98,6 +99,12 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Condominio",
       required: false,
+      index: true,
+    },
+    isActive: {
+      type: Boolean,
+      required: true,
+      default: true,
       index: true,
     },
   },

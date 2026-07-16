@@ -301,7 +301,7 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
   const uniqueIDs = Array.from(new Set(roomTypeIDs)).filter((v) => typeof v === "string" && v.trim().length > 0);
   if (uniqueIDs.length === 0) return index;
 
-  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs } })
+  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs }, isActive: { $ne: false } })
     .select({ roomTypeID: 1, bathroomsCount: 1, titleColor: 1, bedrooms: 1, portada: 1, portadaMenu: 1, posicion_fotos_portadas: 1, orden: 1 })
     .lean();
 
@@ -341,7 +341,7 @@ const fetchRoomTypeLocalPricingIndex = async (roomTypeIDs: string[]): Promise<Ma
   const uniqueIDs = Array.from(new Set(roomTypeIDs)).filter((v) => typeof v === "string" && v.trim().length > 0);
   if (uniqueIDs.length === 0) return index;
 
-  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs } })
+  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs }, isActive: { $ne: false } })
     .select({ roomTypeID: 1, pricing: 1 })
     .lean();
 

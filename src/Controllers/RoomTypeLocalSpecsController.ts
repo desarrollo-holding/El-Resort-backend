@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import RoomTypeLocalSpecs from "../models/RoomTypeLocalSpecs";
 import mongoose from "mongoose";
 import type { AnyBulkWriteOperation } from "mongoose";
-import { SupabaseStorageService } from "../services/supabaseStorage.service";
+import { GcsStorageService } from "../services/csStorage.service";
 import { CondominiosService } from "../services/condominios.service";
 import { parseIdiomaQuery } from "../utils/idioma";
 import { RoomTypeTranslationService } from "../services/roomTypeTranslation.service";
@@ -412,7 +412,7 @@ export class RoomTypeLocalSpecsController {
       let portada_video_value: string | null = typeof portada_video === "string" && portada_video.trim().length > 0 ? portada_video.trim() : null;
       if (portadaVideoImageFiles.length > 0) {
         const file = portadaVideoImageFiles[0];
-        const uploaded = await SupabaseStorageService.uploadFile({
+        const uploaded = await GcsStorageService.uploadFile({
           fileBuffer: file.buffer,
           originalName: file.originalname,
           mimeType: file.mimetype,
@@ -426,7 +426,7 @@ export class RoomTypeLocalSpecsController {
       let portada_value: string | null = typeof portada === "string" && portada.trim().length > 0 ? portada.trim() : null;
       if (portadaImageFiles.length > 0) {
         const file = portadaImageFiles[0];
-        const uploaded = await SupabaseStorageService.uploadFile({
+        const uploaded = await GcsStorageService.uploadFile({
           fileBuffer: file.buffer,
           originalName: file.originalname,
           mimeType: file.mimetype,
@@ -440,7 +440,7 @@ export class RoomTypeLocalSpecsController {
       let portadaMenu_value: string | null = typeof portadaMenu === "string" && portadaMenu.trim().length > 0 ? portadaMenu.trim() : null;
       if (portadaMenuImageFiles.length > 0) {
         const file = portadaMenuImageFiles[0];
-        const uploaded = await SupabaseStorageService.uploadFile({
+        const uploaded = await GcsStorageService.uploadFile({
           fileBuffer: file.buffer,
           originalName: file.originalname,
           mimeType: file.mimetype,
@@ -473,7 +473,7 @@ export class RoomTypeLocalSpecsController {
       res.status(201).json({ success: true, data: doc });
     } catch (error) {
       if (uploadedFileIds.length > 0) {
-        await Promise.allSettled(uploadedFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+        await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
       }
 
       if (isMongoDuplicateKeyError(error)) {
@@ -620,10 +620,11 @@ export class RoomTypeLocalSpecsController {
 
           const uploadedUrls: string[] = [];
           for (const file of fileCandidates) {
-            const uploaded = await SupabaseStorageService.uploadFile({
+            const uploaded = await GcsStorageService.uploadFile({
               fileBuffer: file.buffer,
               originalName: file.originalname,
               mimeType: file.mimetype,
+              mediaKind: "image",
             });
             uploadedFileIds.push(uploaded.fileId);
             uploadedUrls.push(uploaded.url);
@@ -650,7 +651,7 @@ export class RoomTypeLocalSpecsController {
       if (videoUrls !== undefined || videoFiles.length > 0) {
         const uploadedVideoUrls: string[] = [];
         for (const file of videoFiles) {
-          const uploaded = await SupabaseStorageService.uploadFile({
+          const uploaded = await GcsStorageService.uploadFile({
             fileBuffer: file.buffer,
             originalName: file.originalname,
             mimeType: file.mimetype,
@@ -666,7 +667,7 @@ export class RoomTypeLocalSpecsController {
       // Si se envió archivo de portada, subir la primera imagen y usar su URL
       if (portadaVideoImageFiles.length > 0) {
         const file = portadaVideoImageFiles[0];
-        const uploaded = await SupabaseStorageService.uploadFile({
+        const uploaded = await GcsStorageService.uploadFile({
           fileBuffer: file.buffer,
           originalName: file.originalname,
           mimeType: file.mimetype,
@@ -690,7 +691,7 @@ export class RoomTypeLocalSpecsController {
       // portada (imagen principal)
       if (portadaImageFiles.length > 0) {
         const file = portadaImageFiles[0];
-        const uploaded = await SupabaseStorageService.uploadFile({
+        const uploaded = await GcsStorageService.uploadFile({
           fileBuffer: file.buffer,
           originalName: file.originalname,
           mimeType: file.mimetype,
@@ -703,7 +704,7 @@ export class RoomTypeLocalSpecsController {
       // portadaMenu (imagen para menu)
       if (portadaMenuImageFiles.length > 0) {
         const file = portadaMenuImageFiles[0];
-        const uploaded = await SupabaseStorageService.uploadFile({
+        const uploaded = await GcsStorageService.uploadFile({
           fileBuffer: file.buffer,
           originalName: file.originalname,
           mimeType: file.mimetype,
@@ -738,7 +739,7 @@ export class RoomTypeLocalSpecsController {
       if (extraGalleryImages !== undefined || extraGalleryImageFiles.length > 0) {
         const uploadedImageUrls: string[] = [];
         for (const file of extraGalleryImageFiles) {
-          const uploaded = await SupabaseStorageService.uploadFile({
+          const uploaded = await GcsStorageService.uploadFile({
             fileBuffer: file.buffer,
             originalName: file.originalname,
             mimeType: file.mimetype,
@@ -776,7 +777,7 @@ export class RoomTypeLocalSpecsController {
       res.json({ success: true, data: doc });
     } catch (error) {
       if (uploadedFileIds.length > 0) {
-        await Promise.allSettled(uploadedFileIds.map((fileId) => SupabaseStorageService.deleteFile({ fileId })));
+        await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
       }
 
       const status = typeof (error as { status?: unknown })?.status === "number" ? ((error as { status: number }).status as number) : 500;
@@ -875,6 +876,128 @@ export class RoomTypeLocalSpecsController {
 
       res.json({ success: true });
     } catch (error) {
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
+  };
+
+  static getAllAdmin = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      const docs = await RoomTypeLocalSpecs.find({})
+        .sort({ orden: 1, createdAt: 1 })
+        .lean();
+
+      res.json({ success: true, data: docs });
+    } catch (_error) {
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
+  };
+
+  static softDelete = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      const { roomTypeID } = req.params;
+      const doc = await RoomTypeLocalSpecs.findOneAndUpdate(
+        { roomTypeID },
+        { $set: { isActive: false } },
+        { new: true }
+      ).lean();
+
+      if (!doc) {
+        res.status(404).json({ error: "No encontrado" });
+        return;
+      }
+
+      res.json({ success: true, data: doc });
+    } catch (_error) {
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
+  };
+
+  static reactivate = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      const { roomTypeID } = req.params;
+      const doc = await RoomTypeLocalSpecs.findOneAndUpdate(
+        { roomTypeID },
+        { $set: { isActive: true } },
+        { new: true }
+      ).lean();
+
+      if (!doc) {
+        res.status(404).json({ error: "No encontrado" });
+        return;
+      }
+
+      res.json({ success: true, data: doc });
+    } catch (_error) {
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
+  };
+
+  static duplicate = async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      const { sourceRoomTypeID, newRoomTypeID } = req.body as {
+        sourceRoomTypeID: string;
+        newRoomTypeID: string;
+      };
+
+      if (!sourceRoomTypeID || !newRoomTypeID) {
+        res.status(400).json({ error: "sourceRoomTypeID y newRoomTypeID son requeridos" });
+        return;
+      }
+
+      if (sourceRoomTypeID === newRoomTypeID) {
+        res.status(400).json({ error: "El nuevo roomTypeID debe ser diferente al original" });
+        return;
+      }
+
+      const existing = await RoomTypeLocalSpecs.findOne({ roomTypeID: newRoomTypeID }).lean();
+      if (existing) {
+        res.status(409).json({ error: "Ya existe un registro con ese roomTypeID" });
+        return;
+      }
+
+      const source = await RoomTypeLocalSpecs.findOne({ roomTypeID: sourceRoomTypeID }).lean();
+      if (!source) {
+        res.status(404).json({ error: "Propiedad origen no encontrada" });
+        return;
+      }
+
+      const { _id, roomTypeID, createdAt, updatedAt, ...rest } = source as any;
+      const duplicateData = {
+        ...rest,
+        roomTypeID: newRoomTypeID,
+        isActive: true,
+        portada: rest.portada ?? null,
+        portadaMenu: rest.portadaMenu ?? null,
+        portada_video: rest.portada_video ?? null,
+      };
+
+      const doc = await RoomTypeLocalSpecs.create(duplicateData);
+      res.status(201).json({ success: true, data: doc });
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) {
+        res.status(409).json({ error: "Ya existe un registro con ese roomTypeID" });
+        return;
+      }
       res.status(500).json({ error: "Error interno del servidor" });
     }
   };
