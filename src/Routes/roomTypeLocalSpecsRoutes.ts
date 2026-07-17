@@ -31,6 +31,41 @@ router.put(
   RoomTypeLocalSpecsController.updateOrderBulk
 );
 
+router.get(
+  "/",
+  authenticate,
+  hasRole(["marketing"]),
+  RoomTypeLocalSpecsController.getAllAdmin
+);
+
+router.patch(
+  "/:roomTypeID/deactivate",
+  param("roomTypeID").isString().notEmpty().withMessage("roomTypeID es requerido"),
+  handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
+  RoomTypeLocalSpecsController.softDelete
+);
+
+router.patch(
+  "/:roomTypeID/reactivate",
+  param("roomTypeID").isString().notEmpty().withMessage("roomTypeID es requerido"),
+  handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
+  RoomTypeLocalSpecsController.reactivate
+);
+
+router.post(
+  "/duplicate",
+  body("sourceRoomTypeID").isString().notEmpty().withMessage("sourceRoomTypeID es requerido"),
+  body("newRoomTypeID").isString().notEmpty().withMessage("newRoomTypeID es requerido"),
+  handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
+  RoomTypeLocalSpecsController.duplicate
+);
+
 router.post(
   "/",
   body("roomTypeID").isString().notEmpty().withMessage("roomTypeID es requerido"),

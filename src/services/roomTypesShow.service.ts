@@ -262,6 +262,7 @@ const fetchRatePlansIndex = async (params: {
 
 type LocalSpecsNormalized = {
   bathroomsCount: number;
+  titleColor?: string | null;
   bedrooms: Array<{ number: number; description?: string; photos: string[] }>;
   portada?: string | null;
   portadaMenu?: string | null;
@@ -300,8 +301,8 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
   const uniqueIDs = Array.from(new Set(roomTypeIDs)).filter((v) => typeof v === "string" && v.trim().length > 0);
   if (uniqueIDs.length === 0) return index;
 
-  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs } })
-    .select({ roomTypeID: 1, bathroomsCount: 1, bedrooms: 1, portada: 1, portadaMenu: 1, posicion_fotos_portadas: 1, orden: 1 })
+  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs }, isActive: { $ne: false } })
+    .select({ roomTypeID: 1, bathroomsCount: 1, titleColor: 1, bedrooms: 1, portada: 1, portadaMenu: 1, posicion_fotos_portadas: 1, orden: 1 })
     .lean();
 
   for (const doc of docs) {
@@ -326,7 +327,7 @@ const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs: string[]): Promise<Map<
     const rawPosicionFotos = (doc as any).posicion_fotos_portadas;
     const posicion_fotos_portadas: Record<string, unknown> | null = rawPosicionFotos && typeof rawPosicionFotos === "object" && !Array.isArray(rawPosicionFotos) ? (rawPosicionFotos as Record<string, unknown>) : null;
     const orden = typeof (doc as any).orden === "number" && Number.isFinite((doc as any).orden) ? (doc as any).orden : undefined;
-    index.set(doc.roomTypeID, { bathroomsCount, bedrooms: derivedBedrooms, portada, portadaMenu, posicion_fotos_portadas, orden });
+    index.set(doc.roomTypeID, { bathroomsCount, titleColor: (doc as any).titleColor ?? null, bedrooms: derivedBedrooms, portada, portadaMenu, posicion_fotos_portadas, orden });
   }
 
   return index;
@@ -340,7 +341,7 @@ const fetchRoomTypeLocalPricingIndex = async (roomTypeIDs: string[]): Promise<Ma
   const uniqueIDs = Array.from(new Set(roomTypeIDs)).filter((v) => typeof v === "string" && v.trim().length > 0);
   if (uniqueIDs.length === 0) return index;
 
-  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs } })
+  const docs = await RoomTypeLocalSpecs.find({ roomTypeID: { $in: uniqueIDs }, isActive: { $ne: false } })
     .select({ roomTypeID: 1, pricing: 1 })
     .lean();
 
@@ -564,6 +565,7 @@ export const RoomTypesShowService = {
     if (includeSpecs) {
       (result as any).bedroomsCount = resolvedSpecs.bedrooms.length;
       (result as any).bathroomsCount = resolvedSpecs.bathroomsCount ?? 0;
+      (result as any).titleColor = resolvedSpecs.titleColor ?? null;
     }
 
     // Always include `portada` (may be null) so clients receive the field consistently

@@ -9,7 +9,9 @@ export type RoomTypeBedroomSpec = {
 export type RoomTypeLocalSpecsType = Document & {
   roomTypeID: string;
   bathroomsCount: number;
+  titleColor?: string | null;
   orden?: number;
+  isActive: boolean;
   bedrooms: RoomTypeBedroomSpec[];
   portada?: string | null;
   portadaMenu?: string | null;
@@ -37,6 +39,11 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+    titleColor: {
+      type: String,
+      required: false,
+      default: null,
     },
     bedrooms: {
       type: [
@@ -92,6 +99,12 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Condominio",
       required: false,
+      index: true,
+    },
+    isActive: {
+      type: Boolean,
+      required: true,
+      default: true,
       index: true,
     },
   },
