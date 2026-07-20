@@ -86,7 +86,7 @@ const normalizeJsonMediaNodes = async (
   value: JsonLike,
   filesByKey: Map<string, Express.Multer.File[]>,
   uploadedFileIds: string[]
-): Promise<JsonLike> => {  console.log('🚀 [normalizeJsonMediaNodes] Entrando a la función. Valor recibido:', JSON.stringify(value, null, 2).substring(0, 300) + '...');
+): Promise<JsonLike> => {
   if (Array.isArray(value)) {
     const normalizedItems = await Promise.all(value.map((item) => normalizeJsonMediaNodes(item as JsonLike, filesByKey, uploadedFileIds)));
     return normalizedItems;
@@ -115,22 +115,14 @@ const normalizeJsonMediaNodes = async (
 
       const file = files[0];
       const requestedKind = detectMediaKind({ src: normalizedSrcInput, currentKind: value.kind });
-   console.log('🔴 [CONTROLLER] Antes de llamar a GcsStorageService.uploadFile');
-console.log('🔴 [CONTROLLER] File info:', {
-  originalname: file.originalname,
-  mimetype: file.mimetype,
-  size: file.size
-});
 
-const uploaded = await GcsStorageService.uploadFile({
-  fileBuffer: file.buffer,
-  originalName: file.originalname,
-  mimeType: file.mimetype,
-  mediaKind: requestedKind,
-  imageConstraints: undefined,
-});
-
-console.log('🔴 [CONTROLLER] Después de upload. Resultado:', uploaded);
+      const uploaded = await GcsStorageService.uploadFile({
+        fileBuffer: file.buffer,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        mediaKind: requestedKind,
+        imageConstraints: undefined,
+      });
 
       uploadedFileIds.push(uploaded.fileId);
       finalSrc = uploaded.url;
@@ -782,8 +774,6 @@ export class LandingMediaController {
         sectionId?: string | null;
         json?: JsonLike;
       } = {};
-      console.log('📦 [UPDATE] payload.json completo:', JSON.stringify(payload.json, null, 2));
-      console.log('📁 [UPDATE] Claves de archivos recibidos:', Array.from(filesByKey.keys()));
       if (payload.json !== undefined) {
         
         updatePayload.json = await normalizeJsonMediaNodes(parseJsonField(payload.json), filesByKey, uploadedFileIds);

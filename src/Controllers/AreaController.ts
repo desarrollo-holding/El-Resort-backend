@@ -258,10 +258,11 @@ export class AreaController {
   };
 
   static createArea = async (req: Request, res: Response) => {
-    const { nombre, imagenes, categoria } = req.body as { nombre?: unknown; imagenes?: unknown; categoria?: unknown };
+    const { nombre, descripcion, imagenes, categoria } = req.body as { nombre?: unknown; descripcion?: unknown; imagenes?: unknown; categoria?: unknown };
 
     const area = new Area({
       nombre,
+      descripcion: typeof descripcion === "string" ? descripcion : "",
       categoria,
       imagenes: Array.isArray(imagenes) ? imagenes : [],
     });
@@ -306,12 +307,13 @@ export class AreaController {
 
       const { id } = req.params;
       const nombre = typeof req.body?.nombre === "string" ? req.body.nombre.trim() : "";
+      const descripcion = typeof req.body?.descripcion === "string" ? req.body.descripcion.trim() : undefined;
       const imageUrls = parseImageUrlsInput(req.body?.imagenes);
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
       const totalIncomingImages = imageUrls.length + files.length;
 
-      if (!nombre && imageUrls.length === 0 && files.length === 0) {
-        res.status(400).json({ error: "Debes enviar nombre y/o imagenes (url o archivo)" });
+      if (!nombre && descripcion === undefined && imageUrls.length === 0 && files.length === 0) {
+        res.status(400).json({ error: "Debes enviar nombre, descripcion y/o imagenes (url o archivo)" });
         return;
       }
 
@@ -328,6 +330,10 @@ export class AreaController {
 
       if (nombre) {
         area.nombre = nombre;
+      }
+
+      if (descripcion !== undefined) {
+        area.descripcion = descripcion;
       }
 
       const previousImages = Array.isArray(area.imagenes) ? area.imagenes : [];

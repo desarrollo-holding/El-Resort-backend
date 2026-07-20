@@ -2,16 +2,9 @@ import { Storage } from '@google-cloud/storage';
 
 export class GcsStorageService {
   private static getBucket() {
-    console.log('🔵 [GCS] Iniciando getBucket...');
-    console.log('🔵 [GCS] GOOGLE_CLOUD_STORAGE_CREDENTIALS existe:', !!process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS);
-    console.log('🔵 [GCS] GCS_BUCKET_RESORT:', process.env.GCS_BUCKET_RESORT);
-    
     const credentials = JSON.parse(process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS!);
     const storage = new Storage({ credentials });
-    const bucket = storage.bucket(process.env.GCS_BUCKET_RESORT!);
-    
-    console.log('✅ [GCS] Bucket inicializado correctamente');
-    return bucket;
+    return storage.bucket(process.env.GCS_BUCKET_RESORT!);
   }
 
   static async uploadFile({
@@ -27,18 +20,12 @@ export class GcsStorageService {
     mediaKind: 'image' | 'video' | 'file';
     imageConstraints?: any;
   }) {
-    console.log('🟢 [GCS UPLOAD] Iniciando subida...');
-    console.log('🟢 [GCS UPLOAD] Nombre original:', originalName);
-    console.log('🟢 [GCS UPLOAD] Media kind:', mediaKind);
-    
     const bucket = this.getBucket();
     
     const timestamp = Date.now();
     const extension = originalName.split('.').pop();
     const folder = mediaKind === 'image' ? 'fotosresort' : mediaKind === 'video' ? 'videos' : 'files';
     const fileName = `${folder}/${timestamp}_${originalName}`;
-
-    console.log('🟢 [GCS UPLOAD] fileName:', fileName);
 
     const blob = bucket.file(fileName);
     await blob.save(fileBuffer, {
@@ -47,9 +34,6 @@ export class GcsStorageService {
     });
 
     const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_RESORT}/${fileName}`;
-
-    console.log('✅ [GCS UPLOAD] Subida exitosa!');
-    console.log('✅ [GCS UPLOAD] URL:', publicUrl);
 
     return {
       fileId: fileName,

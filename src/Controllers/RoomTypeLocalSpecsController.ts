@@ -6,6 +6,7 @@ import { GcsStorageService } from "../services/csStorage.service";
 import { CondominiosService } from "../services/condominios.service";
 import { parseIdiomaQuery } from "../utils/idioma";
 import { RoomTypeTranslationService } from "../services/roomTypeTranslation.service";
+import { RoomsService } from "../services/rooms.service";
 
 /**
  * @openapi
@@ -507,7 +508,48 @@ export class RoomTypeLocalSpecsController {
       const condominioID = doc.condominioID ? String(doc.condominioID) : null;
       const mapUrl = condominioID ? await CondominiosService.getMapUrlById(condominioID) : null;
 
-      const payload = { success: true, data: { ...doc, condominioID, mapUrl } };
+      // Enriquecer con datos de CloudBeds
+      let enriched: Record<string, unknown> = { ...doc, condominioID, mapUrl };
+      try {
+        const cbMap = await RoomsService.getAllRoomTypesMap();
+        const cb = cbMap.get(roomTypeID) as Record<string, unknown> | undefined;
+        if (cb) {
+          enriched.roomTypeName = typeof cb.roomTypeName === "string" ? cb.roomTypeName : enriched.roomTypeName;
+          enriched.roomTypeDescription = typeof cb.roomTypeDescription === "string" ? cb.roomTypeDescription : enriched.roomTypeDescription;
+          enriched.roomTypePhotos = Array.isArray(cb.roomTypePhotos) ? cb.roomTypePhotos : enriched.roomTypePhotos;
+          enriched.maxGuests = typeof cb.maxGuests === "number" ? cb.maxGuests : enriched.maxGuests;
+          enriched.roomTypeFeatures = Array.isArray(cb.roomTypeFeatures) ? cb.roomTypeFeatures : enriched.roomTypeFeatures;
+        }
+      } catch {
+        // Si CloudBeds no está disponible, usar solo datos locales
+      }
+
+      // Enriquecer pricing con CloudBeds si el local tiene totalRate 0
+      const localPricing = enriched.pricing as Record<string, unknown> | undefined;
+      const localTotalRate = localPricing && typeof localPricing.totalRate === "number" ? localPricing.totalRate : undefined;
+      if (!localTotalRate || localTotalRate === 0) {
+        try {
+          const cbRates = await RoomsService.getCloudBedsRatesMap();
+          const cbRate = cbRates.get(roomTypeID);
+          if (cbRate) {
+            const resolvedPricing = { ...(enriched.pricing as Record<string, unknown> || {}) };
+            if ((!resolvedPricing.totalRate || resolvedPricing.totalRate === 0) && cbRate.totalRate !== undefined) {
+              resolvedPricing.totalRate = cbRate.totalRate;
+            }
+            if ((!resolvedPricing.ofertaDelMesRoomRate || resolvedPricing.ofertaDelMesRoomRate === 0) && cbRate.ofertaRate !== undefined) {
+              resolvedPricing.ofertaDelMesRoomRate = cbRate.ofertaRate;
+            }
+            enriched.pricing = resolvedPricing;
+            enriched.pricingSource = "cloudbeds";
+          }
+        } catch {
+          // CloudBeds no disponible
+        }
+      } else {
+        enriched.pricingSource = "local";
+      }
+
+      const payload = { success: true, data: enriched };
       if (idioma === "en") {
         const translated = await RoomTypeTranslationService.translateRoomTypeSpecsPayloadToEnglish(payload);
         res.json(translated);
@@ -891,7 +933,53 @@ export class RoomTypeLocalSpecsController {
         .sort({ orden: 1, createdAt: 1 })
         .lean();
 
-      res.json({ success: true, data: docs });
+      // Enriquecer con datos de CloudBeds (nombre, fotos, descripción, precios)
+      let cloudbedsMap = new Map<string, Record<string, unknown>>();
+      let cloudbedsRatesMap = new Map<string, { totalRate?: number; ofertaRate?: number }>();
+      try {
+        const cbMap = await RoomsService.getAllRoomTypesMap();
+        cbMap.forEach((val, key) => cloudbedsMap.set(key, val as Record<string, unknown>));
+      } catch {
+        // Si CloudBeds no está disponible, devolver solo datos locales
+      }
+      try {
+        cloudbedsRatesMap = await RoomsService.getCloudBedsRatesMap();
+      } catch {
+        // Si los precios no están disponibles, continuar sin ellos
+      }
+
+      const enriched = docs.map((doc) => {
+        const cb = cloudbedsMap.get(doc.roomTypeID);
+        const cbRates = cloudbedsRatesMap.get(doc.roomTypeID);
+        const localPricing = doc.pricing as Record<string, unknown> | undefined;
+        const localTotalRate = localPricing && typeof localPricing.totalRate === "number" ? localPricing.totalRate : undefined;
+
+        // Precio: local si existe y > 0, si no CloudBeds baseRate
+        const resolvedTotalRate = (localTotalRate != null && localTotalRate > 0)
+          ? localTotalRate
+          : cbRates?.totalRate;
+        const localOferta = localPricing && typeof localPricing.ofertaDelMesRoomRate === "number" ? localPricing.ofertaDelMesRoomRate : undefined;
+        const resolvedOferta = (localOferta != null && localOferta > 0)
+          ? localOferta
+          : cbRates?.ofertaRate;
+
+        const base: Record<string, unknown> = { ...doc };
+        base.pricing = {
+          totalRate: resolvedTotalRate ?? 0,
+          ofertaDelMesRoomRate: resolvedOferta ?? 0,
+        };
+        base.pricingSource = (localTotalRate != null && localTotalRate > 0) ? "local" : "cloudbeds";
+
+        if (!cb) return base;
+        base.roomTypeName = typeof cb.roomTypeName === "string" ? cb.roomTypeName : undefined;
+        base.roomTypeDescription = typeof cb.roomTypeDescription === "string" ? cb.roomTypeDescription : undefined;
+        base.roomTypePhotos = Array.isArray(cb.roomTypePhotos) ? cb.roomTypePhotos : undefined;
+        base.maxGuests = typeof cb.maxGuests === "number" ? cb.maxGuests : undefined;
+        base.roomTypeFeatures = Array.isArray(cb.roomTypeFeatures) ? cb.roomTypeFeatures : undefined;
+        return base;
+      });
+
+      res.json({ success: true, data: enriched });
     } catch (_error) {
       res.status(500).json({ error: "Error interno del servidor" });
     }

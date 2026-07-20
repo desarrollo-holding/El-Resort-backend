@@ -366,6 +366,41 @@ const fetchRoomTypeLocalPricingIndex = async (roomTypeIDs: string[]): Promise<Ma
   return index;
 };
 
+const enrichPricingIndexWithCloudBeds = async (
+  roomTypeIDs: string[],
+  pricingIndex: Map<string, LocalPricingNormalized>
+): Promise<Map<string, LocalPricingNormalized>> => {
+  const needsEnrichment = roomTypeIDs.filter((id) => {
+    const p = pricingIndex.get(id);
+    if (!p) return true;
+    // Necesita enriquecimiento si totalRate es 0 o undefined
+    return !p.totalRate || p.totalRate === 0;
+  });
+  if (needsEnrichment.length === 0) return pricingIndex;
+
+  try {
+    const cbRates = await RoomsService.getCloudBedsRatesMap();
+    for (const id of needsEnrichment) {
+      const cb = cbRates.get(id);
+      if (!cb) continue;
+      const existing = pricingIndex.get(id) ?? {};
+      if ((existing.totalRate === undefined || existing.totalRate === 0) && cb.totalRate !== undefined) {
+        existing.totalRate = cb.totalRate;
+      }
+      if ((existing.ofertaDelMesRoomRate === undefined || existing.ofertaDelMesRoomRate === 0) && cb.ofertaRate !== undefined) {
+        existing.ofertaDelMesRoomRate = cb.ofertaRate;
+      }
+      if (existing.totalRate !== undefined || existing.ofertaDelMesRoomRate !== undefined) {
+        pricingIndex.set(id, existing);
+      }
+    }
+  } catch {
+    // CloudBeds no disponible, continuar con pricing local
+  }
+
+  return pricingIndex;
+};
+
 export const RoomTypesShowService = {
   async listRoomTypesBase(params: { startDate: string; endDate: string; maxGuests?: number }): Promise<RoomTypeModel[]> {
     const rooms = await fetchAllRoomsForDates({ startDate: params.startDate, endDate: params.endDate });
@@ -557,8 +592,8 @@ export const RoomTypesShowService = {
       roomTypeName: model.presentation.roomTypeName,
       maxGuests: model.presentation.maxGuests,
       pricing: {
-        totalRate: localPricing?.totalRate ?? model.pricing.baseRate?.totalRate,
-        ofertaDelMesRoomRate: localPricing?.ofertaDelMesRoomRate ?? ofertaDelMes?.roomRate,
+        totalRate: localPricing?.totalRate ?? model.pricing.baseRate?.totalRate ?? 0,
+        ofertaDelMesRoomRate: localPricing?.ofertaDelMesRoomRate ?? ofertaDelMes?.roomRate ?? 0,
       },
     };
 
@@ -773,6 +808,7 @@ export const RoomTypesShowService = {
 
     const specsIndex = await fetchRoomTypeLocalSpecsIndex(full.map((m) => m.roomTypeID));
     const pricingIndex = await fetchRoomTypeLocalPricingIndex(full.map((m) => m.roomTypeID));
+    await enrichPricingIndexWithCloudBeds(full.map((m) => m.roomTypeID), pricingIndex);
 
     // Ordenar por `orden` ascendente; los que no tengan `orden` quedan al final
     full.sort((a, b) => {
@@ -784,7 +820,7 @@ export const RoomTypesShowService = {
       return a.roomTypeID.localeCompare(b.roomTypeID);
     });
 
-    return full.map((m) => this.toReducedModel(m, specsIndex.get(m.roomTypeID), { portadaOnly: true }, pricingIndex.get(m.roomTypeID)));
+    return full.map((m) => this.toReducedModel(m, specsIndex.get(m.roomTypeID), { includePortadaMenu: true }, pricingIndex.get(m.roomTypeID)));
   },
 
   async getRoomTypeReducedDetailWithLocalPricing(params: {
@@ -835,6 +871,7 @@ export const RoomTypesShowService = {
 
     const specsIndex = await fetchRoomTypeLocalSpecsIndex([params.roomTypeID]);
     const pricingIndex = await fetchRoomTypeLocalPricingIndex([params.roomTypeID]);
+    await enrichPricingIndexWithCloudBeds([params.roomTypeID], pricingIndex);
     return this.toReducedDetailModel(
       model,
       specsIndex.get(params.roomTypeID),
