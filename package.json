@@ -6,7 +6,9 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "dev:api": "nodemon --exec ts-node src/index.ts --api",
     "build": "tsc",
-    "start": "node ./dist/index.js"
+    "start": "node ./dist/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "keywords": [],
   "author": "Julio Tornero",
@@ -49,6 +51,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/helmet": "^0.0.48",
+    "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/lodash": "^4.17.24",
     "@types/morgan": "^1.9.9",
@@ -57,7 +60,9 @@
     "@types/nodemailer": "^6.4.17",
     "@types/swagger-ui-express": "^4.1.8",
     "@types/web-push": "^3.6.4",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.9",
+    "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }
