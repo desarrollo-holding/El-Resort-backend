@@ -3,8 +3,13 @@
  */
 const mongoose = require("mongoose");
 
-const MONGO_URI =
-  "mongodb://root:pFb87RRAPxTlQPpP@ac-t8ttbek-shard-00-00.6vr5r2q.mongodb.net:27017,ac-t8ttbek-shard-00-01.6vr5r2q.mongodb.net:27017,ac-t8ttbek-shard-00-02.6vr5r2q.mongodb.net:27017/extras_resort?ssl=true&replicaSet=atlas-m7egv7-shard-0&authSource=admin&appName=Extras-clone";
+require("dotenv").config();
+
+const MONGO_URI = process.env.DATABASE_URL;
+if (!MONGO_URI) {
+  console.error("DATABASE_URL no está definido (revisa tu .env)");
+  process.exit(1);
+}
 
 async function main() {
   await mongoose.connect(MONGO_URI);
