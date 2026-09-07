@@ -366,17 +366,25 @@ export class TextosLandingPageController {
       }
 
       // Auto-sync: si se actualiza 'es', intentamos refrescar 'en' con Gemini.
-      // Si Gemini falla, NO tocamos el registro en inglés.
+      // Si Gemini falla, NO tocamos el registro en inglés (queda con la traducción anterior)
+      // y avisamos al admin vía `enSyncWarning` en vez de fallar en silencio: sin esto, el
+      // texto en inglés puede quedar desactualizado indefinidamente sin que nadie lo note.
+      let enSyncWarning: string | undefined;
       if (updated.idioma === "es" && updated.json && typeof updated.json === "object" && !Array.isArray(updated.json)) {
         try {
           const translatedEnJson = await TranslateService.translateJsonObject(updated.json as object);
           await TextosLandingPageService.upsertBySectionAndIdioma(updated.section, "en", translatedEnJson);
         } catch (geminiError) {
-          console.warn("@@ Gemini failed during auto-sync EN; leaving EN unchanged:", geminiError);
+          const message = geminiError instanceof Error ? geminiError.message : String(geminiError);
+          console.error(
+            `[TextosLandingPageController.updateById] Fallo la sincronización automática a inglés para section=${updated.section}; EN quedó sin actualizar:`,
+            message
+          );
+          enSyncWarning = `Se guardó en español, pero no se pudo sincronizar automáticamente al inglés: ${message}`;
         }
       }
 
-      res.json({ success: true, data: updated });
+      res.json({ success: true, data: updated, ...(enSyncWarning ? { enSyncWarning } : {}) });
     } catch (error) {
       if (isMongoDuplicateKeyError(error)) {
         res.status(409).json({ error: "Ya existe un registro para esa combinacion idioma + sectionId" });

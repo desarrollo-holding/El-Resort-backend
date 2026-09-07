@@ -120,6 +120,21 @@ const collectReducedDetailDescriptions = (
   }
 };
 
+const collectReducedListNames = (data: unknown, localEnByRoomTypeID?: LocalEnByRoomTypeID) => {
+  if (!Array.isArray(data)) return;
+
+  for (const item of data) {
+    if (!isObjectRecord(item)) continue;
+
+    const localEn = localEnByRoomTypeID?.get(getRoomTypeID(item) ?? "");
+    const roomTypeName = (item as any).roomTypeName;
+    const nameEn = localEn?.nameEn?.trim();
+    if (typeof roomTypeName === "string" && nameEn) {
+      (item as any).roomTypeName = TranslationSanitizer.sanitizeTranslatedText(nameEn);
+    }
+  }
+};
+
 const collectRoomTypeSpecsBedroomsDescriptions = (data: unknown, texts: string[], setters: Array<(translated: string) => void>) => {
   if (!isObjectRecord(data)) return;
 
@@ -210,6 +225,21 @@ export const RoomTypeTranslationService = {
       const sanitized = TranslationSanitizer.sanitizeTranslatedText(t);
       setters[i](sanitized);
     }
+
+    return cloned;
+  },
+
+  async translateRoomsShowLitePayloadToEnglish<T>(payload: T, localEnByRoomTypeID?: LocalEnByRoomTypeID): Promise<T> {
+    const cloned = deepClone(payload);
+
+    if (!isObjectRecord(cloned)) return cloned;
+
+    const data = (cloned as PayloadWithData).data;
+
+    // /api/rooms/show-lite: data = RoomTypeReduced[] (planos, sin `presentation`); traducible:
+    // roomTypeName, solo cuando hay inglés persistido localmente (sin traducción en vivo, igual
+    // que en /api/rooms/show).
+    collectReducedListNames(data, localEnByRoomTypeID);
 
     return cloned;
   },

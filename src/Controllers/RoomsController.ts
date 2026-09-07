@@ -428,6 +428,11 @@ export class RoomsController {
    *     description: Devuelve un payload reducido con todos los room types. El pricing se obtiene desde RoomTypeLocalSpecs (BD local).
    *     parameters:
    *       - in: query
+   *         name: idioma
+   *         required: false
+   *         schema: { type: string, enum: [es, en], default: es }
+   *         description: Si es "en", `roomTypeName` usa el inglés persistido localmente (RoomTypeLocalSpecs) cuando exista; si no, se mantiene el nombre de Cloudbeds/BD (español).
+   *       - in: query
    *         name: maxGuests
    *         required: false
    *         schema: { type: integer, minimum: 0 }
@@ -467,6 +472,7 @@ export class RoomsController {
   static showRoomTypesLite = async (req: Request, res: Response): Promise<void> => {
     try {
       const query = req.query as Record<string, unknown>;
+      const idioma = parseIdiomaQuery(query.idioma) ?? "es";
 
       const maxGuests = asOptionalInt(query.maxGuests);
       if (maxGuests !== undefined && maxGuests < 0) {
@@ -490,7 +496,15 @@ export class RoomsController {
       const startIndex = (pageNumber - 1) * pageSize;
       const data = all.slice(startIndex, startIndex + pageSize);
 
-      res.json({ success: true, data, count: data.length, total });
+      const payload = { success: true, data, count: data.length, total };
+      if (idioma === "en") {
+        const localEnByRoomTypeID = await fetchLocalEnByRoomTypeID(data.map((d) => d.roomTypeID));
+        const translated = await RoomTypeTranslationService.translateRoomsShowLitePayloadToEnglish(payload, localEnByRoomTypeID);
+        res.json(translated);
+        return;
+      }
+
+      res.json(payload);
     } catch (error) {
       if (error instanceof RoomsService.CloudbedsHttpError) {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });

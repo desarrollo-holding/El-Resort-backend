@@ -197,12 +197,46 @@ const parseImageUrlsInput = (value: unknown): string[] => {
 export class ExtraController {
   //Crear Extra
   static createExtra = async (req: Request, res: Response) => {
-    const extra = new Extra(req.body);
+    const uploadedFileIds: string[] = [];
 
     try {
+      const imageUrls = parseImageUrlsInput(req.body?.imagenes);
+      const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
+      const totalIncomingImages = imageUrls.length + files.length;
+
+      if (totalIncomingImages > 1) {
+        res.status(400).json({ error: "Solo se permite 1 imagen" });
+        return;
+      }
+
+      let imagenes: string[] = [];
+      if (totalIncomingImages === 1) {
+        let nextImageUrl = imageUrls[0];
+
+        if (files.length === 1) {
+          const file = files[0];
+          const uploaded = await GcsStorageService.uploadFile({
+            fileBuffer: file.buffer,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            mediaKind: "image",
+          });
+
+          uploadedFileIds.push(uploaded.fileId);
+          nextImageUrl = uploaded.url;
+        }
+
+        imagenes = nextImageUrl ? [nextImageUrl] : [];
+      }
+
+      const extra = new Extra({ ...req.body, imagenes });
       await extra.save();
       res.send("Extra creado correctamente");
     } catch (error) {
+      if (uploadedFileIds.length > 0) {
+        await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
+      }
+
       console.log(error);
       res.status(500).json({ message: "Error al crear el extra", error });
     }
@@ -332,7 +366,16 @@ export class ExtraController {
         return;
       }
 
+      const fileIds = (Array.isArray(extra.imagenes) ? extra.imagenes : [])
+        .map((url) => extractGcsFileIdFromPublicUrl(url))
+        .filter((value): value is string => typeof value === "string" && value.length > 0);
+
       await extra.deleteOne();
+
+      if (fileIds.length > 0) {
+        await Promise.allSettled(fileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
+      }
+
       res.send("Extra eliminado correctamente");
     } catch (error) {
       console.log(error);

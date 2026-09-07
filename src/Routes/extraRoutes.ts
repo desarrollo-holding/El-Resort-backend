@@ -5,14 +5,17 @@ import { createMemoryUpload } from "../config/upload";
 import { ExtraController } from "../Controllers/ExtraController";
 import { handleInputErrors } from "../middleware/validation";
 import { authenticate } from "../middleware/auth";
+import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
 const upload = createMemoryUpload(30);
 
-//Crear extra 
+//Crear extra
 router.post(
-  "/", 
+  "/",
   authenticate,
+  hasRole(["marketing"]),
+  upload.array("imagenes", 1),
   body("nombre").notEmpty().withMessage("El nombre del extra es requerido"),
   body("precio").notEmpty().withMessage("El precio del extra es requerido"),
   body("descripcion").notEmpty().withMessage("La descripcion del extra es requerida"),
@@ -39,6 +42,7 @@ router.get(
 router.put(
   "/:id",
   authenticate,
+  hasRole(["marketing"]),
   upload.array("imagenes", 1),
   param("id").isMongoId().withMessage("El id del extra no es válido"),
   body("nombre").notEmpty().withMessage("El nombre del extra es requerido"),
@@ -52,6 +56,7 @@ router.put(
 router.delete(
   "/:id",
   authenticate,
+  hasRole(["marketing"]),
   param("id").isMongoId().withMessage("El id del extra no es válido"),
   handleInputErrors,
   ExtraController.deleteExtra

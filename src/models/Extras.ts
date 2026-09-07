@@ -81,7 +81,8 @@ const ExtraSchema: Schema = new Schema({
   },
   duracion: {
     type: Number, // Duración en minutos
-    required: true,
+    required: false,
+    default: 0,
   },
   areas: {
     type: [
