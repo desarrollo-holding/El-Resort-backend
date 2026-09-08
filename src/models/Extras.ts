@@ -1,4 +1,8 @@
 import mongoose, { Schema, Document } from "mongoose";
+import type { ImageAssetType } from "./shared/imageAsset";
+
+/** `string` = dato previo a este pipeline; ver ./shared/imageAsset para el porqué de la unión. */
+export type ExtraImageField = ImageAssetType | string;
 
 // Esto es de Typescript
 export type ExtraType = Document & {
@@ -10,7 +14,7 @@ export type ExtraType = Document & {
   personas: number;
   montoAdicional: number;
   stock: number;
-  imagenes: string[];
+  imagenes: ExtraImageField[];
   diasNoDisponibles?: string[];
   fechasBloqueadas?: {
     inicio: Date;
@@ -62,8 +66,10 @@ const ExtraSchema: Schema = new Schema({
     type: Number,
     required: false,
   },
+  // Mixed a propósito: acepta el `ImageAssetType` de las subidas nuevas y el `string` suelto
+  // de extras creados antes de este pipeline (ver ./shared/imageAsset).
   imagenes: {
-    type: [String],
+    type: [Schema.Types.Mixed],
     required: false,
   },
   diasNoDisponibles: {

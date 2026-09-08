@@ -3,6 +3,7 @@ import RoomTypeLocalSpecs from "../../models/RoomTypeLocalSpecs";
 import { BeneficiosService } from "../beneficios.service";
 import { RoomsService } from "../rooms.service";
 import type { LocalSpecsNormalized, LocalPricingNormalized } from "./types";
+import { normalizeImageAsset, normalizeImageAssetArray } from "../../models/shared/imageAsset";
 
 export const normalizeLocalBedrooms = (value: unknown): LocalSpecsNormalized["bedrooms"] => {
   if (!Array.isArray(value)) return [];
@@ -13,7 +14,7 @@ export const normalizeLocalBedrooms = (value: unknown): LocalSpecsNormalized["be
     const number = typeof record.number === "number" && Number.isFinite(record.number) ? record.number : undefined;
     if (!number || number < 1) continue;
     const description = typeof record.description === "string" && record.description.trim().length > 0 ? record.description.trim() : undefined;
-    const photos = Array.isArray(record.photos) ? record.photos.filter((p): p is string => typeof p === "string") : [];
+    const photos = normalizeImageAssetArray(record.photos);
     normalized.push({ number, description, photos });
   }
   normalized.sort((a, b) => a.number - b.number);
@@ -64,14 +65,12 @@ export const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs?: string[]): Prom
       bedrooms.length > 0
         ? bedrooms
         : typeof legacyBedroomsCount === "number" && Number.isFinite(legacyBedroomsCount) && legacyBedroomsCount > 0
-          ? Array.from({ length: Math.floor(legacyBedroomsCount) }, (_, i) => ({ number: i + 1, photos: [] as string[] }))
+          ? Array.from({ length: Math.floor(legacyBedroomsCount) }, (_, i) => ({ number: i + 1, photos: [] as LocalSpecsNormalized["bedrooms"][number]["photos"] }))
           : [];
 
     if (bathroomsCount === undefined) continue;
-    const rawPortada = (doc as any).portada;
-    const portada: string | null = typeof rawPortada === "string" ? rawPortada : null;
-    const rawPortadaMenu = (doc as any).portadaMenu;
-    const portadaMenu: string | null = typeof rawPortadaMenu === "string" ? rawPortadaMenu : null;
+    const portada = normalizeImageAsset((doc as any).portada);
+    const portadaMenu = normalizeImageAsset((doc as any).portadaMenu);
     const rawPosicionFotos = (doc as any).posicion_fotos_portadas;
     const posicion_fotos_portadas: Record<string, unknown> | null = rawPosicionFotos && typeof rawPosicionFotos === "object" && !Array.isArray(rawPosicionFotos) ? (rawPosicionFotos as Record<string, unknown>) : null;
     const orden = typeof (doc as any).orden === "number" && Number.isFinite((doc as any).orden) ? (doc as any).orden : undefined;

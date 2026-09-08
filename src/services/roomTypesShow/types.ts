@@ -1,4 +1,5 @@
 import type { BeneficioDTO } from "../beneficios.service";
+import type { ImageAssetType } from "../../models/shared/imageAsset";
 
 export type CloudbedsRoomsResponse = {
   success?: boolean;
@@ -29,9 +30,9 @@ export type CloudbedsRatePlansResponse = {
 export type LocalSpecsNormalized = {
   bathroomsCount: number;
   titleColor?: string | null;
-  bedrooms: Array<{ number: number; description?: string; photos: string[] }>;
-  portada?: string | null;
-  portadaMenu?: string | null;
+  bedrooms: Array<{ number: number; description?: string; photos: ImageAssetType[] }>;
+  portada?: ImageAssetType | null;
+  portadaMenu?: ImageAssetType | null;
   posicion_fotos_portadas?: Record<string, unknown> | null;
   orden?: number;
   /** Catálogo local ya resuelto (icono + texto). Vacío = la ficha cae a `roomTypeFeatures` de Cloudbeds. */

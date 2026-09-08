@@ -2,24 +2,10 @@ import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import Area, { AREA_CATEGORIAS } from "../models/Area";
 import { GcsStorageService } from "../services/csStorage.service";
+import { InvalidImageError } from "../services/imageOptimizer";
+import { uploadImageAsset } from "../services/imageAssetUpload";
+import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
 import { asOptionalString } from "../utils/http";
-import { getGcsConfigFromEnv } from "../config/gcs";
-
-const extractGcsFileIdFromPublicUrl = (value: string): string | null => {
-  if (typeof value !== "string" || !value.trim()) return null;
-
-  try {
-    const parsed = new URL(value);
-    const marker = `/${getGcsConfigFromEnv().bucket}/`;
-    const markerIndex = parsed.pathname.indexOf(marker);
-    if (markerIndex < 0) return null;
-
-    const fileId = decodeURIComponent(parsed.pathname.slice(markerIndex + marker.length));
-    return fileId || null;
-  } catch {
-    return null;
-  }
-};
 
 const parseImagesToDelete = (body: unknown): string[] => {
   if (!body || typeof body !== "object") return [];
@@ -262,19 +248,13 @@ export class AreaController {
     let uploadedFileId: string | null = null;
 
     try {
-      let imagenes = imageUrls;
+      let imagenes: ImageAssetType[] = normalizeImageAssetArray(imageUrls);
 
       if (files.length === 1) {
         const file = files[0];
-        const uploaded = await GcsStorageService.uploadFile({
-          fileBuffer: file.buffer,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          mediaKind: "image",
-        });
-
-        uploadedFileId = uploaded.fileId;
-        imagenes = [uploaded.url];
+        const asset = await uploadImageAsset(file);
+        uploadedFileId = asset.storageKey;
+        imagenes = [asset];
       }
 
       const area = new Area({
@@ -286,9 +266,13 @@ export class AreaController {
 
       await area.save();
       res.status(201).json({ success: true, data: area });
-    } catch (_error) {
+    } catch (error) {
       if (uploadedFileId) {
         await Promise.allSettled([GcsStorageService.deleteFile({ fileId: uploadedFileId })]);
+      }
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ error: error.message });
+        return;
       }
       res.status(500).json({ error: "Error al crear el área" });
     }
@@ -354,34 +338,30 @@ export class AreaController {
         area.descripcion = descripcion;
       }
 
-      const previousImages = Array.isArray(area.imagenes) ? area.imagenes : [];
+      const previousImages = normalizeImageAssetArray(area.imagenes);
 
       if (totalIncomingImages === 1) {
-        let nextImageUrl = imageUrls[0];
+        let nextImage: ImageAssetType | null = imageUrls[0]
+          ? previousImages.find((asset) => asset.url === imageUrls[0]) ?? normalizeImageAsset(imageUrls[0])
+          : null;
 
         if (files.length === 1) {
           const file = files[0];
-          const uploaded = await GcsStorageService.uploadFile({
-            fileBuffer: file.buffer,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            mediaKind: "image",
-          });
-
-          uploadedFileIds.push(uploaded.fileId);
-          nextImageUrl = uploaded.url;
+          const asset = await uploadImageAsset(file);
+          uploadedFileIds.push(asset.storageKey);
+          nextImage = asset;
         }
 
-        area.imagenes = nextImageUrl ? [nextImageUrl] : [];
+        area.imagenes = nextImage ? [nextImage] : [];
       }
 
       await area.save();
 
       if (totalIncomingImages === 1) {
-        const currentImage = area.imagenes[0];
+        const currentImages = normalizeImageAssetArray(area.imagenes);
         const staleFileIds = previousImages
-          .filter((url) => url !== currentImage)
-          .map((url) => extractGcsFileIdFromPublicUrl(url))
+          .filter((asset) => !currentImages.some((current) => current.url === asset.url))
+          .map((asset) => asset.storageKey || GcsStorageService.extractKeyFromUrl(asset.url))
           .filter((value): value is string => typeof value === "string" && value.length > 0);
 
         if (staleFileIds.length > 0) {
@@ -390,11 +370,15 @@ export class AreaController {
       }
 
       res.json({ success: true, data: area });
-    } catch (_error) {
+    } catch (error) {
       if (uploadedFileIds.length > 0) {
         await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
       }
 
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       res.status(500).json({ error: "Error interno del servidor" });
     }
   };
@@ -420,9 +404,9 @@ export class AreaController {
         return;
       }
 
-      const existing = Array.isArray(area.imagenes) ? area.imagenes : [];
+      const existing = normalizeImageAssetArray(area.imagenes);
       const removeSet = new Set(imagesToDelete);
-      const remaining = existing.filter((url) => !removeSet.has(url));
+      const remaining = existing.filter((asset) => !removeSet.has(asset.url));
 
       if (remaining.length === existing.length) {
         res.status(400).json({ error: "Ninguna imagen coincide con el area" });
@@ -432,8 +416,9 @@ export class AreaController {
       area.imagenes = remaining;
       await area.save();
 
-      const fileIds = imagesToDelete
-        .map((url) => extractGcsFileIdFromPublicUrl(url))
+      const removed = existing.filter((asset) => removeSet.has(asset.url));
+      const fileIds = removed
+        .map((asset) => asset.storageKey || GcsStorageService.extractKeyFromUrl(asset.url))
         .filter((value): value is string => typeof value === "string" && value.length > 0);
 
       if (fileIds.length > 0) {
@@ -464,8 +449,8 @@ export class AreaController {
         return;
       }
 
-      const fileIds = (Array.isArray(area.imagenes) ? area.imagenes : [])
-        .map((url) => extractGcsFileIdFromPublicUrl(url))
+      const fileIds = normalizeImageAssetArray(area.imagenes)
+        .map((asset) => asset.storageKey || GcsStorageService.extractKeyFromUrl(asset.url))
         .filter((value): value is string => typeof value === "string" && value.length > 0);
 
       await Area.deleteOne({ _id: id });

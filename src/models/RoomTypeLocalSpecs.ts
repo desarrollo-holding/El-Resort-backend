@@ -1,9 +1,19 @@
 import mongoose, { Schema, Document } from "mongoose";
+import type { ImageAssetType } from "./shared/imageAsset";
+
+/**
+ * `photos`/`portada`/`portadaMenu`/`extraGalleryImages` guardan `ImageAssetType` (imagen +
+ * variantes) para las subidas nuevas, pero un documento creado antes de este pipeline tiene un
+ * `string` suelto en el mismo lugar. Se tipa como unión y `normalizeImageAsset(Array)` (en
+ * `./shared/imageAsset`) es la única forma soportada de leerlo — ver el comentario de ese
+ * archivo para el porqué de no forzar un esquema tipado.
+ */
+export type RoomTypeImageField = ImageAssetType | string;
 
 export type RoomTypeBedroomSpec = {
   number: number;
   description?: string;
-  photos: string[];
+  photos: RoomTypeImageField[];
 };
 
 export type RoomTypeLocalSpecsType = Document & {
@@ -13,12 +23,12 @@ export type RoomTypeLocalSpecsType = Document & {
   orden?: number;
   isActive: boolean;
   bedrooms: RoomTypeBedroomSpec[];
-  portada?: string | null;
-  portadaMenu?: string | null;
+  portada?: RoomTypeImageField | null;
+  portadaMenu?: RoomTypeImageField | null;
   posicion_fotos_portadas?: Record<string, unknown> | null;
   video_url: string[];
   portada_video?: string | null;
-  extraGalleryImages: string[];
+  extraGalleryImages: RoomTypeImageField[];
   pricing?: {
     totalRate?: number;
     ofertaDelMesRoomRate?: number;
@@ -57,7 +67,9 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
         {
           number: { type: Number, required: true, min: 1 },
           description: { type: String, required: false, trim: true },
-          photos: { type: [String], required: true, default: [] },
+          // Mixed a propósito: acepta tanto el `ImageAssetType` de las subidas nuevas como el
+          // `string` suelto de documentos previos a este pipeline (ver ./shared/imageAsset).
+          photos: { type: [Schema.Types.Mixed], required: true, default: [] },
         },
       ],
       required: true,
@@ -69,12 +81,12 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       default: [],
     },
     portada: {
-      type: String,
+      type: Schema.Types.Mixed,
       required: false,
       default: null,
     },
     portadaMenu: {
-      type: String,
+      type: Schema.Types.Mixed,
       required: false,
       default: null,
     },
@@ -84,7 +96,7 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       default: null,
     },
     extraGalleryImages: {
-      type: [String],
+      type: [Schema.Types.Mixed],
       required: true,
       default: [],
     },

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { BeneficiosService, type BeneficioIconFile } from "../services/beneficios.service";
+import { InvalidImageError } from "../services/imageOptimizer";
 
 /** El icono llega como `icono` en un multipart (`upload.any()` en las rutas). */
 const pickIconFile = (req: Request): BeneficioIconFile | undefined => {
@@ -138,6 +139,10 @@ export class BeneficiosController {
       res.status(201).json({ success: true, data });
     } catch (error) {
       console.error("[BeneficiosController.create]", error);
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       res.status(500).json({ error: "Error interno del servidor" });
     }
   };
@@ -197,6 +202,10 @@ export class BeneficiosController {
       res.json({ success: true, data });
     } catch (error) {
       console.error("[BeneficiosController.update]", error);
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       res.status(500).json({ error: "Error interno del servidor" });
     }
   };

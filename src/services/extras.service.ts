@@ -1,4 +1,5 @@
 import Extra from "../models/Extras";
+import { normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
 
 export type ExtrasByGrupoBlock = {
   grupo: string | null;
@@ -10,7 +11,7 @@ export type ExtraDto = {
   precio: number;
   descripcion: string;
   grupo?: string;
-  imagenes: string[];
+  imagenes: ImageAssetType[];
 };
 
 export const ExtrasService = {
@@ -27,7 +28,7 @@ export const ExtrasService = {
         precio: extra.precio,
         descripcion: extra.descripcion,
         grupo: grupo ?? undefined,
-        imagenes: Array.isArray(extra.imagenes) ? extra.imagenes : [],
+        imagenes: normalizeImageAssetArray(extra.imagenes),
       };
 
       const list = grouped.get(grupo);

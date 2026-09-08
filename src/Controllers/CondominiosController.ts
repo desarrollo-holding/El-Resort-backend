@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { CondominiosService } from "../services/condominios.service";
 import { GcsStorageService } from "../services/csStorage.service";
+import { InvalidImageError } from "../services/imageOptimizer";
 
 /**
  * @openapi
@@ -126,6 +127,10 @@ export class CondominiosController {
         res.status(409).json({ error: "Ya existe un condominio con ese nombre" });
         return;
       }
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       res.status(500).json({ error: "Error interno del servidor" });
     }
   };
@@ -213,6 +218,10 @@ export class CondominiosController {
 
       if (error && typeof error === "object" && (error as any).code === 11000) {
         res.status(409).json({ error: "Ya existe un condominio con ese nombre" });
+        return;
+      }
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ error: error.message });
         return;
       }
       res.status(500).json({ error: "Error interno del servidor" });

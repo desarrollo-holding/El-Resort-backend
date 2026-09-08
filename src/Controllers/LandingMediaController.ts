@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { LANDING_MEDIA_TIPOS, type LandingMediaTipo } from "../models/LandingMedia";
 import { LandingMediaService } from "../services/landingMedia.service";
 import { GcsStorageService } from "../services/csStorage.service";
+import { cleanupOrphanedLandingMedia } from "../services/landingMediaOrphanCleanup";
 import { getErrorStatus } from "../utils/errors";
 
 type JsonRecord = Record<string, unknown>;
@@ -99,6 +100,11 @@ const normalizeJsonMediaNodes = async (
     const normalizedSrcInput = value.src.trim();
     let finalSrc = normalizedSrcInput;
     let mimeTypeForKind: string | undefined;
+    // Solo se llena en una subida fresca (media://): un `src` que ya era URL directa no
+    // vuelve a pasar por el pipeline, así que conserva el `width`/`height`/`variants` que
+    // ya tuviera guardados (o nada, si nunca los tuvo).
+    let freshImageMeta: { width?: number; height?: number; variants: unknown[] } | undefined;
+    let wasFreshUpload = false;
 
     if (isMediaRef(normalizedSrcInput)) {
       const key = normalizedSrcInput.replace(/^media:\/\//i, "").trim();
@@ -115,7 +121,11 @@ const normalizeJsonMediaNodes = async (
       }
 
       const file = files[0];
-      const requestedKind = detectMediaKind({ src: normalizedSrcInput, currentKind: value.kind });
+      // El `mimetype` real del archivo ya se conoce acá (antes de subir): usarlo es lo que
+      // hace que `requestedKind` sea "image" de forma confiable. Sin esto, un nodo nuevo
+      // (sin `kind` todavía en el payload) caía a "file" -- carpeta `files/` y sin pasar por
+      // el optimizador -- aunque el archivo fuera claramente una imagen.
+      const requestedKind = detectMediaKind({ src: normalizedSrcInput, mimeType: file.mimetype, currentKind: value.kind });
 
       const uploaded = await GcsStorageService.uploadFile({
         fileBuffer: file.buffer,
@@ -129,6 +139,12 @@ const normalizeJsonMediaNodes = async (
       finalSrc = uploaded.url;
       mimeTypeForKind = file.mimetype;
       filesByKey.delete(key);
+      wasFreshUpload = true;
+      // `uploaded.width` solo viene poblado para imágenes rasterizables (no SVG/GIF/video):
+      // ver GcsStorageService.uploadFile. Con escalera de variantes, listo para `srcset`.
+      if (requestedKind === "image" && uploaded.width !== undefined) {
+        freshImageMeta = { width: uploaded.width, height: uploaded.height, variants: uploaded.variants ?? [] };
+      }
     } else if (isDirectUrl(normalizedSrcInput)) {
       finalSrc = normalizedSrcInput;
     } else if (isFrontendLocalPath(normalizedSrcInput)) {
@@ -147,8 +163,20 @@ const normalizeJsonMediaNodes = async (
       status: "existing",
     };
 
+    if (freshImageMeta) {
+      normalizedMediaNode.width = freshImageMeta.width;
+      normalizedMediaNode.height = freshImageMeta.height;
+      normalizedMediaNode.variants = freshImageMeta.variants;
+    } else if (wasFreshUpload) {
+      // Se reemplazó el archivo por uno que no genera variantes (video, SVG, GIF): la
+      // metadata de la versión anterior ya no aplica.
+      delete normalizedMediaNode.width;
+      delete normalizedMediaNode.height;
+      delete normalizedMediaNode.variants;
+    }
+
     for (const [k, v] of Object.entries(normalizedMediaNode)) {
-      if (k === "src" || k === "kind" || k === "status") continue;
+      if (k === "src" || k === "kind" || k === "status" || k === "width" || k === "height" || k === "variants") continue;
       normalizedMediaNode[k] = await normalizeJsonMediaNodes(v as JsonLike, filesByKey, uploadedFileIds);
     }
 
@@ -769,6 +797,35 @@ export class LandingMediaController {
       const filesByKey = normalizeFilesMap(files);
       const idParam = typeof req.params.id === "string" ? req.params.id.trim() : "";
 
+      // Se resuelve el documento existente (si lo hay) ANTES de subir nada: es la fuente para
+      // saber, después de guardar, qué imágenes salieron del árbol y hay que borrar del
+      // storage (`cleanupOrphanedLandingMedia`). tipo/sectionId/nombre ya parseados acá se
+      // reutilizan más abajo para el update real, no se vuelven a parsear.
+      let existingJson: unknown;
+      let resolvedTipo: LandingMediaTipo | undefined;
+      let resolvedSectionId: string | undefined;
+      let resolvedNombre: string | undefined;
+
+      if (idParam) {
+        const existing = await LandingMediaService.getById(idParam);
+        existingJson = existing?.json;
+      } else {
+        resolvedTipo = parseTipo(payload.tipo);
+        if (resolvedTipo === "SECCION") {
+          const sectionId = parseSectionId(payload.sectionId);
+          if (!sectionId) {
+            throw Object.assign(new Error("sectionId es requerido para actualizar SECCION"), { status: 400 });
+          }
+          resolvedSectionId = sectionId;
+          const existing = await LandingMediaService.getByIdentifier({ tipo: "SECCION", sectionId });
+          existingJson = existing?.json;
+        } else {
+          resolvedNombre = parseNombre(payload.nombre);
+          const existing = await LandingMediaService.getByIdentifier({ tipo: "GLOBAL", nombre: resolvedNombre });
+          existingJson = existing?.json;
+        }
+      }
+
       const updatePayload: {
         tipo?: LandingMediaTipo;
         nombre?: string;
@@ -776,7 +833,7 @@ export class LandingMediaController {
         json?: JsonLike;
       } = {};
       if (payload.json !== undefined) {
-        
+
         updatePayload.json = await normalizeJsonMediaNodes(parseJsonField(payload.json), filesByKey, uploadedFileIds);
       }
 
@@ -792,43 +849,41 @@ export class LandingMediaController {
         if (payload.nombre !== undefined) updatePayload.nombre = parseNombre(payload.nombre);
         if (payload.sectionId !== undefined) updatePayload.sectionId = parseSectionId(payload.sectionId);
         updated = await LandingMediaService.updateById(idParam, updatePayload);
-      } else {
-        const tipo = parseTipo(payload.tipo);
-
-        if (tipo === "SECCION") {
-          const sectionId = parseSectionId(payload.sectionId);
-          if (!sectionId) {
-            throw Object.assign(new Error("sectionId es requerido para actualizar SECCION"), { status: 400 });
-          }
-          updated = await LandingMediaService.updateByIdentifier({ tipo: "SECCION", sectionId }, updatePayload);
-          if (!updated) {
-            // Primer guardado de medios para esta sección: todavía no existe el documento
-            // (p. ej. una sección que hasta ahora solo tenía textos). Se crea en vez de 404.
-            const nombre = parseNombre(payload.nombre);
-            updated = await LandingMediaService.create({
-              tipo: "SECCION",
-              nombre,
-              sectionId,
-              json: updatePayload.json ?? {},
-            });
-          }
-        } else {
+      } else if (resolvedTipo === "SECCION") {
+        updated = await LandingMediaService.updateByIdentifier({ tipo: "SECCION", sectionId: resolvedSectionId! }, updatePayload);
+        if (!updated) {
+          // Primer guardado de medios para esta sección: todavía no existe el documento
+          // (p. ej. una sección que hasta ahora solo tenía textos). Se crea en vez de 404.
           const nombre = parseNombre(payload.nombre);
-          updated = await LandingMediaService.updateByIdentifier({ tipo: "GLOBAL", nombre }, updatePayload);
-          if (!updated) {
-            updated = await LandingMediaService.create({
-              tipo: "GLOBAL",
-              nombre,
-              sectionId: null,
-              json: updatePayload.json ?? {},
-            });
-          }
+          updated = await LandingMediaService.create({
+            tipo: "SECCION",
+            nombre,
+            sectionId: resolvedSectionId!,
+            json: updatePayload.json ?? {},
+          });
+        }
+      } else {
+        updated = await LandingMediaService.updateByIdentifier({ tipo: "GLOBAL", nombre: resolvedNombre! }, updatePayload);
+        if (!updated) {
+          updated = await LandingMediaService.create({
+            tipo: "GLOBAL",
+            nombre: resolvedNombre!,
+            sectionId: null,
+            json: updatePayload.json ?? {},
+          });
         }
       }
 
       if (!updated) {
         res.status(404).json({ error: "No encontrado" });
         return;
+      }
+
+      // Limpieza de huérfanos: recién que el guardado en Mongo ya se confirmó (nunca antes),
+      // se borran del storage las imágenes que salieron del árbol (reemplazadas o quitadas).
+      // Solo aplica si el body tocó `json` y si ya existía un documento antes de este guardado.
+      if (payload.json !== undefined && existingJson !== undefined) {
+        await cleanupOrphanedLandingMedia(existingJson, updated.json);
       }
 
       res.json({ success: true, data: updated });
@@ -856,10 +911,17 @@ export class LandingMediaController {
         return;
       }
 
+      // Se lee el documento antes de borrarlo: sin esto, cada imagen que tuviera (hero,
+      // badges, carousel...) quedaría huérfana en el storage para siempre.
+      const existing = await LandingMediaService.getById(req.params.id);
       const ok = await LandingMediaService.deleteById(req.params.id);
       if (!ok) {
         res.status(404).json({ error: "No encontrado" });
         return;
+      }
+
+      if (existing) {
+        await cleanupOrphanedLandingMedia(existing.json, null);
       }
 
       res.json({ success: true });

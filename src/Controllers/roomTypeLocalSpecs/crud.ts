@@ -24,8 +24,17 @@ import {
   slugifyRoomTypeName,
   buildRoomTypeIdCandidate,
 } from "./normalize";
-import { uploadImageFile, uploadVideoFile, rollbackUploads, type UploadTracker } from "./mediaUpload";
+import { uploadImageFile, uploadImageAssetFile, uploadVideoFile, rollbackUploads, type UploadTracker } from "./mediaUpload";
 import { fetchCloudbedsRoomTypesMapSafe, fetchCloudbedsRatesMapSafe } from "./cloudbedsEnrichment";
+import {
+  resolveKeptImageAssets,
+  resolveKeptSingleImageAsset,
+  mergeImageAssets,
+  diffRemovedImageAssets,
+  diffRemovedSingleImageAsset,
+  cleanupRemovedImageAssets,
+} from "./imageAssetSync";
+import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } from "../../models/shared/imageAsset";
 
 const MAX_ROOM_TYPE_ID_ATTEMPTS = 30;
 
@@ -103,16 +112,18 @@ export const create = async (req: Request, res: Response): Promise<void> => {
       portada_video_value = await uploadImageFile(portadaVideoImageFiles[0], tracker);
     }
 
-    // portada (imagen principal)
-    let portada_value: string | null = typeof portada === "string" && portada.trim().length > 0 ? portada.trim() : null;
+    // portada (imagen principal): recién subida > URL suelta enviada tal cual (sin variantes hasta que se reprocese).
+    let portada_value: ImageAssetType | null =
+      typeof portada === "string" && portada.trim().length > 0 ? normalizeImageAsset(portada.trim()) : null;
     if (portadaImageFiles.length > 0) {
-      portada_value = await uploadImageFile(portadaImageFiles[0], tracker);
+      portada_value = await uploadImageAssetFile(portadaImageFiles[0], tracker);
     }
 
     // portadaMenu (imagen para menu)
-    let portadaMenu_value: string | null = typeof portadaMenu === "string" && portadaMenu.trim().length > 0 ? portadaMenu.trim() : null;
+    let portadaMenu_value: ImageAssetType | null =
+      typeof portadaMenu === "string" && portadaMenu.trim().length > 0 ? normalizeImageAsset(portadaMenu.trim()) : null;
     if (portadaMenuImageFiles.length > 0) {
-      portadaMenu_value = await uploadImageFile(portadaMenuImageFiles[0], tracker);
+      portadaMenu_value = await uploadImageAssetFile(portadaMenuImageFiles[0], tracker);
     }
 
     const roomTypeNameResolved = {
@@ -136,14 +147,14 @@ export const create = async (req: Request, res: Response): Promise<void> => {
         ? bedrooms.map((b) => ({
             number: b.number,
             description: typeof b.description === "string" ? b.description : undefined,
-            photos: Array.isArray(b.photos) ? b.photos : [],
+            photos: normalizeImageAssetArray(b.photos),
           }))
         : [],
       video_url: normalizedVideoUrls,
       portada: portada_value,
       portadaMenu: portadaMenu_value,
       portada_video: portada_video_value,
-      extraGalleryImages: normalizedExtraGalleryImages,
+      extraGalleryImages: normalizeImageAssetArray(normalizedExtraGalleryImages),
       pricing: normalizedPricing,
       posicion_fotos_portadas: normalizedPosicionFotos,
       roomTypeName: roomTypeNameResolved,
@@ -281,6 +292,22 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
 
     const { roomTypeID } = req.params;
 
+    // Se busca ANTES de subir nada: si el roomTypeID no existe, evita subir archivos a GCS que
+    // ningún documento va a referenciar nunca (antes el 404 se detectaba recién al final, con
+    // el upload ya hecho y sin limpieza). También es la fuente para resolver qué fotos
+    // "mantener" conservan sus variantes en vez de degradar a un asset pelado.
+    const existingDoc = await RoomTypeLocalSpecs.findOne({ roomTypeID }).lean();
+    if (!existingDoc) {
+      res.status(404).json({ error: "No encontrado" });
+      return;
+    }
+    const existingPortada = normalizeImageAsset((existingDoc as any).portada);
+    const existingPortadaMenu = normalizeImageAsset((existingDoc as any).portadaMenu);
+    const existingBedroomsRaw = Array.isArray((existingDoc as any).bedrooms)
+      ? ((existingDoc as any).bedrooms as Array<{ number: number; photos?: unknown[] }>)
+      : [];
+    const existingExtraGalleryImages = normalizeImageAssetArray((existingDoc as any).extraGalleryImages);
+
     const payload = normalizePayload(req);
     const bathroomsCount = payload.bathroomsCount;
     const titleColor = payload.titleColor;
@@ -359,12 +386,12 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       bathroomsCount: number;
       titleColor: string | null;
       condominioID: mongoose.Types.ObjectId;
-      bedrooms: Array<{ number: number; description?: string; photos: string[] }>;
+      bedrooms: Array<{ number: number; description?: string; photos: ImageAssetType[] }>;
       video_url: string[];
-      extraGalleryImages: string[];
+      extraGalleryImages: ImageAssetType[];
       portada_video?: string | null;
-      portada?: string | null;
-      portadaMenu?: string | null;
+      portada?: ImageAssetType | null;
+      portadaMenu?: ImageAssetType | null;
       pricing: {
         totalRate?: number;
         ofertaDelMesRoomRate?: number;
@@ -398,7 +425,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
     if (maxGuestsPayload !== undefined) update.maxGuests = maxGuestsPayload;
 
     if (bedrooms.length > 0 || files.length > 0) {
-      const normalizedBedrooms: Array<{ number: number; description?: string; photos: string[] }> = [];
+      const normalizedBedrooms: Array<{ number: number; description?: string; photos: ImageAssetType[] }> = [];
 
       for (const bedroom of bedrooms) {
         const keys = getBedroomKeys(bedroom);
@@ -406,13 +433,18 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
 
         for (const key of keys) bedroomFilesByKey.delete(key);
 
-        const uploadedUrls: string[] = [];
+        const uploadedAssets: ImageAssetType[] = [];
         for (const file of fileCandidates) {
-          uploadedUrls.push(await uploadImageFile(file, tracker));
+          uploadedAssets.push(await uploadImageAssetFile(file, tracker));
         }
 
+        // Resolver contra las fotos que este dormitorio ya tenía en el documento (no las del
+        // payload nuevo) para que una foto "mantenida" conserve sus variantes existentes.
+        const existingBedroom = existingBedroomsRaw.find((b) => b.number === bedroom.number);
+        const existingPhotos = normalizeImageAssetArray(existingBedroom?.photos);
         const keptUrls = normalizeKeptUrls(bedroom);
-        const photos = Array.from(new Set([...keptUrls, ...uploadedUrls]));
+        const keptAssets = resolveKeptImageAssets(existingPhotos, keptUrls);
+        const photos = mergeImageAssets(keptAssets, uploadedAssets);
 
         normalizedBedrooms.push({
           number: bedroom.number as number,
@@ -456,12 +488,12 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
 
     // portada (imagen principal)
     if (portadaImageFiles.length > 0) {
-      update.portada = await uploadImageFile(portadaImageFiles[0], tracker);
+      update.portada = await uploadImageAssetFile(portadaImageFiles[0], tracker);
     }
 
     // portadaMenu (imagen para menu)
     if (portadaMenuImageFiles.length > 0) {
-      update.portadaMenu = await uploadImageFile(portadaMenuImageFiles[0], tracker);
+      update.portadaMenu = await uploadImageAssetFile(portadaMenuImageFiles[0], tracker);
     }
 
     if (portadaMenuImageFiles.length === 0 && portadaMenuRaw !== undefined) {
@@ -469,7 +501,10 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
         update.portadaMenu = null;
       } else if (typeof portadaMenuRaw === "string") {
         const trimmed = portadaMenuRaw.trim();
-        update.portadaMenu = trimmed.length > 0 ? trimmed : null;
+        // Si la URL enviada es la misma portadaMenu que ya tenía el documento, se conserva el
+        // asset existente (con sus variantes); si no matchea, se guarda pelada (sin variantes)
+        // en vez de rechazarla.
+        update.portadaMenu = trimmed.length > 0 ? resolveKeptSingleImageAsset(existingPortadaMenu, trimmed) : null;
       } else {
         throw toHttpError(400, "portadaMenu debe ser una cadena o null");
       }
@@ -480,19 +515,20 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
         update.portada = null;
       } else if (typeof portadaRaw === "string") {
         const trimmed = portadaRaw.trim();
-        update.portada = trimmed.length > 0 ? trimmed : null;
+        update.portada = trimmed.length > 0 ? resolveKeptSingleImageAsset(existingPortada, trimmed) : null;
       } else {
         throw toHttpError(400, "portada debe ser una cadena o null");
       }
     }
 
     if (extraGalleryImages !== undefined || extraGalleryImageFiles.length > 0) {
-      const uploadedImageUrls: string[] = [];
+      const uploadedAssets: ImageAssetType[] = [];
       for (const file of extraGalleryImageFiles) {
-        uploadedImageUrls.push(await uploadImageFile(file, tracker));
+        uploadedAssets.push(await uploadImageAssetFile(file, tracker));
       }
 
-      update.extraGalleryImages = Array.from(new Set([...(extraGalleryImages ?? []), ...uploadedImageUrls]));
+      const keptAssets = resolveKeptImageAssets(existingExtraGalleryImages, extraGalleryImages ?? []);
+      update.extraGalleryImages = mergeImageAssets(keptAssets, uploadedAssets);
     }
 
     // posicion_fotos_portadas: aceptar objeto o null si se envió en payload
@@ -515,6 +551,24 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
     if (!doc) {
       res.status(404).json({ error: "No encontrado" });
       return;
+    }
+
+    // Limpieza de huérfanos: recién que el `$set` en Mongo ya se confirmó (nunca antes, para
+    // no borrar del bucket algo que un fallo de escritura dejaría todavía referenciado), se
+    // borran del storage las imágenes que salieron de cada campo (reemplazadas o quitadas).
+    if (update.portada !== undefined) {
+      await cleanupRemovedImageAssets([diffRemovedSingleImageAsset(existingPortada, update.portada)]);
+    }
+    if (update.portadaMenu !== undefined) {
+      await cleanupRemovedImageAssets([diffRemovedSingleImageAsset(existingPortadaMenu, update.portadaMenu)]);
+    }
+    if (update.bedrooms !== undefined) {
+      const existingBedroomPhotos = existingBedroomsRaw.flatMap((b) => normalizeImageAssetArray(b.photos));
+      const survivingBedroomPhotos = update.bedrooms.flatMap((b) => b.photos);
+      await cleanupRemovedImageAssets(diffRemovedImageAssets(existingBedroomPhotos, survivingBedroomPhotos));
+    }
+    if (update.extraGalleryImages !== undefined) {
+      await cleanupRemovedImageAssets(diffRemovedImageAssets(existingExtraGalleryImages, update.extraGalleryImages));
     }
 
     res.json({ success: true, data: doc });

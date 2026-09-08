@@ -2,23 +2,9 @@ import type { Request, Response } from "express";
 import Extra from "../models/Extras";
 import { ExtrasService } from "../services/extras.service";
 import { GcsStorageService } from "../services/csStorage.service";
-import { getGcsConfigFromEnv } from "../config/gcs";
-
-const extractGcsFileIdFromPublicUrl = (value: string): string | null => {
-  if (typeof value !== "string" || !value.trim()) return null;
-
-  try {
-    const parsed = new URL(value);
-    const marker = `/${getGcsConfigFromEnv().bucket}/`;
-    const markerIndex = parsed.pathname.indexOf(marker);
-    if (markerIndex < 0) return null;
-
-    const fileId = decodeURIComponent(parsed.pathname.slice(markerIndex + marker.length));
-    return fileId || null;
-  } catch {
-    return null;
-  }
-};
+import { InvalidImageError } from "../services/imageOptimizer";
+import { uploadImageAsset } from "../services/imageAssetUpload";
+import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
 
 const parseImageUrlsInput = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -209,24 +195,14 @@ export class ExtraController {
         return;
       }
 
-      let imagenes: string[] = [];
+      let imagenes: ImageAssetType[] = normalizeImageAssetArray(imageUrls);
       if (totalIncomingImages === 1) {
-        let nextImageUrl = imageUrls[0];
-
         if (files.length === 1) {
           const file = files[0];
-          const uploaded = await GcsStorageService.uploadFile({
-            fileBuffer: file.buffer,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            mediaKind: "image",
-          });
-
-          uploadedFileIds.push(uploaded.fileId);
-          nextImageUrl = uploaded.url;
+          const asset = await uploadImageAsset(file);
+          uploadedFileIds.push(asset.storageKey);
+          imagenes = [asset];
         }
-
-        imagenes = nextImageUrl ? [nextImageUrl] : [];
       }
 
       const extra = new Extra({ ...req.body, imagenes });
@@ -238,6 +214,10 @@ export class ExtraController {
       }
 
       console.log(error);
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ message: error.message });
+        return;
+      }
       res.status(500).json({ message: "Error al crear el extra", error });
     }
   };
@@ -303,23 +283,21 @@ export class ExtraController {
         return;
       }
 
+      const previousImages = normalizeImageAssetArray(currentExtra.imagenes);
+
       if (totalIncomingImages === 1) {
-        let nextImageUrl = imageUrls[0];
+        let nextImage: ImageAssetType | null = imageUrls[0]
+          ? previousImages.find((asset) => asset.url === imageUrls[0]) ?? normalizeImageAsset(imageUrls[0])
+          : null;
 
         if (files.length === 1) {
           const file = files[0];
-          const uploaded = await GcsStorageService.uploadFile({
-            fileBuffer: file.buffer,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            mediaKind: "image",
-          });
-
-          uploadedFileIds.push(uploaded.fileId);
-          nextImageUrl = uploaded.url;
+          const asset = await uploadImageAsset(file);
+          uploadedFileIds.push(asset.storageKey);
+          nextImage = asset;
         }
 
-        payload.imagenes = nextImageUrl ? [nextImageUrl] : [];
+        payload.imagenes = nextImage ? [nextImage] : [];
       }
 
       const extra = await Extra.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
@@ -331,11 +309,10 @@ export class ExtraController {
       }
 
       if (totalIncomingImages === 1) {
-        const previousImages = Array.isArray(currentExtra.imagenes) ? currentExtra.imagenes : [];
-        const currentImage = Array.isArray(extra.imagenes) ? extra.imagenes[0] : undefined;
+        const currentImages = normalizeImageAssetArray(extra.imagenes);
         const staleFileIds = previousImages
-          .filter((url) => url !== currentImage)
-          .map((url) => extractGcsFileIdFromPublicUrl(url))
+          .filter((asset) => !currentImages.some((current) => current.url === asset.url))
+          .map((asset) => asset.storageKey || GcsStorageService.extractKeyFromUrl(asset.url))
           .filter((value): value is string => typeof value === "string" && value.length > 0);
 
         if (staleFileIds.length > 0) {
@@ -350,6 +327,10 @@ export class ExtraController {
       }
 
       console.log(error);
+      if (error instanceof InvalidImageError) {
+        res.status(400).json({ message: error.message });
+        return;
+      }
       res.status(500).json({ message: "Error al actualizar el extra" });
     }
   };
@@ -366,8 +347,8 @@ export class ExtraController {
         return;
       }
 
-      const fileIds = (Array.isArray(extra.imagenes) ? extra.imagenes : [])
-        .map((url) => extractGcsFileIdFromPublicUrl(url))
+      const fileIds = normalizeImageAssetArray(extra.imagenes)
+        .map((asset) => asset.storageKey || GcsStorageService.extractKeyFromUrl(asset.url))
         .filter((value): value is string => typeof value === "string" && value.length > 0);
 
       await extra.deleteOne();

@@ -99,9 +99,10 @@ describe("toReducedModel", () => {
   });
 
   it("incluye portadaMenu solo cuando se pide explícitamente", () => {
-    const localSpecs: LocalSpecsNormalized = { bathroomsCount: 1, bedrooms: [], portadaMenu: "menu.jpg" };
+    const portadaMenu = { url: "menu.jpg", storageKey: "", storagePrefix: "", variants: [] };
+    const localSpecs: LocalSpecsNormalized = { bathroomsCount: 1, bedrooms: [], portadaMenu };
     const withMenu = toReducedModel(baseModel(), localSpecs, { includePortadaMenu: true });
-    expect((withMenu as any).portadaMenu).toBe("menu.jpg");
+    expect((withMenu as any).portadaMenu).toEqual(portadaMenu);
     const withoutMenu = toReducedModel(baseModel(), localSpecs);
     expect((withoutMenu as any).portadaMenu).toBeUndefined();
   });

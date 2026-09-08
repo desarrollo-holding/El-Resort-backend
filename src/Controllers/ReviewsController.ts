@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import LandingMedia from "../models/LandingMedia";
 import { GcsStorageService } from "../services/csStorage.service";
+import { InvalidImageError } from "../services/imageOptimizer";
 
 const SECTION_NAME = "reviewsSection";
 const REVIEWS_JSON_KEY = "reviews";
@@ -77,6 +78,7 @@ export class ReviewsController {
           originalName: avatarFile.originalname,
           mimeType: avatarFile.mimetype,
           mediaKind: "image",
+          imageProfile: "avatar",
         });
         avatarUrl = uploaded.url;
       }
@@ -97,6 +99,10 @@ export class ReviewsController {
       res.status(201).json({ success: true, data: newReview });
     } catch (err) {
       console.error("[ReviewsController.create]", err);
+      if (err instanceof InvalidImageError) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
       res.status(500).json({ error: "Error al crear reseña" });
     }
   };
@@ -136,6 +142,7 @@ export class ReviewsController {
           originalName: avatarFile.originalname,
           mimeType: avatarFile.mimetype,
           mediaKind: "image",
+          imageProfile: "avatar",
         });
         reviews[idx].avatarUrl = uploaded.url;
       }
@@ -146,6 +153,10 @@ export class ReviewsController {
       res.json({ success: true, data: reviews[idx] });
     } catch (err) {
       console.error("[ReviewsController.update]", err);
+      if (err instanceof InvalidImageError) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
       res.status(500).json({ error: "Error al actualizar reseña" });
     }
   };
