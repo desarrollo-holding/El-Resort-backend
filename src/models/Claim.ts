@@ -10,7 +10,7 @@ export type ClaimAttachment = {
 
 export type ClaimDocumentType = "DNI" | "CE" | "PASAPORTE";
 export type ClaimReportType = "RECLAMO" | "QUEJA";
-export type ClaimContractedGood = "HOSPEDAJE" | "ALIMENTOS_BEBIDAS" | "EXPERIENCIA" | "OTRO";
+export type ClaimContractedGood = "VENTA_INMUEBLE" | "HOSPEDAJE";
 
 export type ClaimType = Document & {
   code: string;
@@ -63,7 +63,7 @@ const claimSchema: Schema = new Schema(
     contractedGood: {
       type: String,
       required: true,
-      enum: ["HOSPEDAJE", "ALIMENTOS_BEBIDAS", "EXPERIENCIA", "OTRO"],
+      enum: ["VENTA_INMUEBLE", "HOSPEDAJE"],
     },
     contractedGoodDetail: { type: String, required: true, trim: true },
     detail: { type: String, required: true, trim: true },

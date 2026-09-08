@@ -40,7 +40,7 @@ router.post(
   body("summary").trim().notEmpty().withMessage("summary es requerido"),
   body("amountClaimed").optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage("amountClaimed debe ser number >= 0"),
   body("contractedGood")
-    .isIn(["HOSPEDAJE", "ALIMENTOS_BEBIDAS", "EXPERIENCIA", "OTRO"])
+    .isIn(["VENTA_INMUEBLE", "HOSPEDAJE"])
     .withMessage("contractedGood inválido"),
   body("contractedGoodDetail").trim().notEmpty().withMessage("contractedGoodDetail es requerido"),
   body("detail").trim().notEmpty().withMessage("detail es requerido"),

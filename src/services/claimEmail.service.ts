@@ -6,10 +6,8 @@ const REPORT_TYPE_LABEL: Record<string, string> = {
 };
 
 const CONTRACTED_GOOD_LABEL: Record<string, string> = {
+  VENTA_INMUEBLE: "Venta de inmueble",
   HOSPEDAJE: "Hospedaje",
-  ALIMENTOS_BEBIDAS: "Alimentos y bebidas",
-  EXPERIENCIA: "Experiencia",
-  OTRO: "Otro",
 };
 
 const DOCUMENT_TYPE_LABEL: Record<string, string> = {

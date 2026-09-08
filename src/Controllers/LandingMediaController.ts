@@ -801,9 +801,28 @@ export class LandingMediaController {
             throw Object.assign(new Error("sectionId es requerido para actualizar SECCION"), { status: 400 });
           }
           updated = await LandingMediaService.updateByIdentifier({ tipo: "SECCION", sectionId }, updatePayload);
+          if (!updated) {
+            // Primer guardado de medios para esta sección: todavía no existe el documento
+            // (p. ej. una sección que hasta ahora solo tenía textos). Se crea en vez de 404.
+            const nombre = parseNombre(payload.nombre);
+            updated = await LandingMediaService.create({
+              tipo: "SECCION",
+              nombre,
+              sectionId,
+              json: updatePayload.json ?? {},
+            });
+          }
         } else {
           const nombre = parseNombre(payload.nombre);
           updated = await LandingMediaService.updateByIdentifier({ tipo: "GLOBAL", nombre }, updatePayload);
+          if (!updated) {
+            updated = await LandingMediaService.create({
+              tipo: "GLOBAL",
+              nombre,
+              sectionId: null,
+              json: updatePayload.json ?? {},
+            });
+          }
         }
       }
 

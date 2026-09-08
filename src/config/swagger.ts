@@ -89,7 +89,7 @@ export const createSwaggerSpec = () => {
               amountClaimed: { type: "number", nullable: true },
               contractedGood: {
                 type: "string",
-                enum: ["HOSPEDAJE", "ALIMENTOS_BEBIDAS", "EXPERIENCIA", "OTRO"],
+                enum: ["VENTA_INMUEBLE", "HOSPEDAJE"],
               },
               contractedGoodDetail: { type: "string" },
               detail: { type: "string" },
@@ -137,7 +137,7 @@ export const createSwaggerSpec = () => {
               amountClaimed: { type: "string", nullable: true, example: "150.50" },
               contractedGood: {
                 type: "string",
-                enum: ["HOSPEDAJE", "ALIMENTOS_BEBIDAS", "EXPERIENCIA", "OTRO"],
+                enum: ["VENTA_INMUEBLE", "HOSPEDAJE"],
               },
               contractedGoodDetail: { type: "string" },
               detail: { type: "string" },
