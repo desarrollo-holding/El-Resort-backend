@@ -30,6 +30,17 @@ export type ImageAssetType = {
   width?: number;
   height?: number;
   variants: ImageVariantType[];
+  /**
+   * El archivo original tal como estaba antes de que el backfill lo recodificara. Se conserva para
+   * poder volver atrás (`npm run media:backfill -- --rollback <archivo>`) y para poder borrarlo
+   * junto con la imagen: una imagen migrada guarda su original FUERA de `storagePrefix/`, así que
+   * borrar solo la carpeta de variantes dejaría huérfano un archivo de varios MB.
+   *
+   * El sitio NUNCA los sirve. Vacíos en las imágenes subidas ya con el pipeline (no hubo original
+   * previo) y en las que nunca se migraron.
+   */
+  legacyUrl?: string;
+  legacyStorageKey?: string;
 };
 
 const isImageVariantLike = (value: unknown): value is ImageVariantType => {
@@ -65,6 +76,9 @@ export const normalizeImageAsset = (value: unknown): ImageAssetType | null => {
     width: typeof v.width === "number" && Number.isFinite(v.width) ? v.width : undefined,
     height: typeof v.height === "number" && Number.isFinite(v.height) ? v.height : undefined,
     variants: Array.isArray(v.variants) ? v.variants.filter(isImageVariantLike) : [],
+    legacyUrl: typeof v.legacyUrl === "string" && v.legacyUrl.trim() ? v.legacyUrl.trim() : undefined,
+    legacyStorageKey:
+      typeof v.legacyStorageKey === "string" && v.legacyStorageKey.trim() ? v.legacyStorageKey.trim() : undefined,
   };
 };
 

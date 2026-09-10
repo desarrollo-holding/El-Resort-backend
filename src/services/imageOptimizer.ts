@@ -18,7 +18,7 @@ const INPUT_OPTIONS: sharp.SharpOptions = { limitInputPixels: LIMIT_INPUT_PIXELS
 // pesado y peor que el propio orig.
 export const VARIANT_WIDTHS = [480, 768, 1080, 1440, 1920] as const;
 
-export type ImageProfileKey = "default" | "avatar";
+export type ImageProfileKey = "default" | "avatar" | "single";
 
 // El perfil se deriva del hueco real donde se muestra la imagen, no del archivo de entrada.
 // `avatar` es de un solo tamaño (círculo pequeño de reseñas): no tiene sentido generar una
@@ -26,6 +26,12 @@ export type ImageProfileKey = "default" | "avatar";
 export const IMAGE_PROFILES: Record<ImageProfileKey, { maxDimension: number; widths: readonly number[] }> = {
   default: { maxDimension: 2400, widths: VARIANT_WIDTHS },
   avatar: { maxDimension: 480, widths: [] },
+  // Para campos que en el esquema son `String` y por lo tanto no pueden guardar `variants[]`
+  // (`condominios.mapUrl`, `roomtypelocalspecs.portada_video`). Se recodifica y se acota, que es
+  // donde está casi todo el ahorro en bytes, pero no se genera escalera porque no habría dónde
+  // anotarla. 1600 px y no 480 como `avatar`: son mapas de señalización y fotogramas de portada
+  // que se ven grandes, y bajarlos a 480 se vería.
+  single: { maxDimension: 1600, widths: [] },
 };
 
 export class InvalidImageError extends Error {

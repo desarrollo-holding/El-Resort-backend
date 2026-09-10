@@ -221,6 +221,18 @@ export const getByRoomTypeID = async (req: Request, res: Response): Promise<void
       // Los ids crudos siguen saliendo para que el dashboard marque los checkboxes.
       beneficios: (doc.beneficios ?? []).map((id) => String(id)),
       beneficiosResueltos,
+      // Normalizar assets de imagen: documentos legacy pueden traer `width`/`height` en `null`
+      // (en vez de ausentes) tal como quedaron guardados en Mongo, lo cual el schema del
+      // frontend rechaza. `normalizeImageAsset` es la misma función que usa el PUT.
+      portada: normalizeImageAsset((doc as any).portada),
+      portadaMenu: normalizeImageAsset((doc as any).portadaMenu),
+      extraGalleryImages: normalizeImageAssetArray((doc as any).extraGalleryImages),
+      bedrooms: Array.isArray(doc.bedrooms)
+        ? doc.bedrooms.map((bedroom) => ({
+            ...bedroom,
+            photos: normalizeImageAssetArray((bedroom as any).photos),
+          }))
+        : [],
     };
 
     const cbMap = await fetchCloudbedsRoomTypesMapSafe();

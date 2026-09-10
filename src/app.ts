@@ -28,6 +28,7 @@ import landingMediaRoutes from "./Routes/landingMediaRoutes";
 import reviewsRoutes from "./Routes/reviewsRoutes";
 import beneficiosRoutes from "./Routes/beneficiosRoutes";
 import claimsRoutes from "./Routes/claimsRoutes";
+import publicMediaUrls from "./middleware/publicMediaUrls";
 
 dotenv.config();
 
@@ -49,6 +50,10 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.set("json replacer", (key: string, value: unknown) =>
   key === "__proto__" ? undefined : value
 );
+
+// Antes de las rutas: reescribe las URLs de medios de TODA respuesta JSON al origen público
+// (`MEDIA_PUBLIC_BASE_URL`). Inerte si esa variable no está definida — ver services/publicMedia.ts.
+app.use(publicMediaUrls);
 
 const sanitizeInput = <T extends object>(obj: T): Partial<T> =>
   _.omit(obj, ["__proto__", "constructor", "prototype"]);
