@@ -583,7 +583,25 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       await cleanupRemovedImageAssets(diffRemovedImageAssets(existingExtraGalleryImages, update.extraGalleryImages));
     }
 
-    res.json({ success: true, data: doc });
+    // Mantener el mismo contrato de assets que el GET: el frontend valida la respuesta del PUT
+    // inmediatamente después de una subida y no debe recibir valores Mixed crudos desde Mongo.
+    const responseData = {
+      ...doc,
+      condominioID: doc.condominioID ? String(doc.condominioID) : null,
+      beneficios: (doc.beneficios ?? []).map((id) => String(id)),
+      beneficiosResueltos: [],
+      portada: normalizeImageAsset((doc as any).portada),
+      portadaMenu: normalizeImageAsset((doc as any).portadaMenu),
+      extraGalleryImages: normalizeImageAssetArray((doc as any).extraGalleryImages),
+      bedrooms: Array.isArray(doc.bedrooms)
+        ? doc.bedrooms.map((bedroom) => ({
+            ...bedroom,
+            photos: normalizeImageAssetArray((bedroom as any).photos),
+          }))
+        : [],
+    };
+
+    res.json({ success: true, data: responseData });
   } catch (error) {
     if (tracker.uploadedFileIds.length > 0) {
       await rollbackUploads(tracker.uploadedFileIds);
