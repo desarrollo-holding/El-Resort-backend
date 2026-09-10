@@ -1,0 +1,55 @@
+{
+  "startedAt": "2026-09-10T21:19:00.349Z",
+  "dryRun": false,
+  "total": 2,
+  "migradas": 2,
+  "omitidas": 0,
+  "fallidas": 0,
+  "bytesBefore": 211250,
+  "bytesOrig": 73964,
+  "bytesSmallest": 73964,
+  "bytesStored": 73964,
+  "records": [
+    {
+      "collection": "roomtypelocalspecs",
+      "docId": "69e10ed0eff9291c01ff5228",
+      "path": "portada",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": {
+        "url": "https://storage.googleapis.com/greendreams_bucket/fotosresort/1788792550414_YV30.webp",
+        "storageKey": "",
+        "storagePrefix": "",
+        "variants": []
+      },
+      "bytesBefore": 108714,
+      "storagePrefix": "fotosresort/1789075141560-84e1523f-fe47-4a9b-a29a-4df0241f9d1a",
+      "bytesOrig": 36224,
+      "bytesSmallest": 36224,
+      "bytesStored": 36224
+    },
+    {
+      "collection": "roomtypelocalspecs",
+      "docId": "69e10eeceff9291c01ff5234",
+      "path": "portada",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": {
+        "url": "https://storage.googleapis.com/greendreams_bucket/fotosresort/1788792578826_YV33.webp",
+        "storageKey": "",
+        "storagePrefix": "",
+        "width": null,
+        "height": null,
+        "variants": [],
+        "legacyUrl": null,
+        "legacyStorageKey": null
+      },
+      "bytesBefore": 102536,
+      "storagePrefix": "fotosresort/1789075142668-1b9c2ee6-1697-48c8-8cf2-c1ed86d5de63",
+      "bytesOrig": 37740,
+      "bytesSmallest": 37740,
+      "bytesStored": 37740
+    }
+  ],
+  "finishedAt": "2026-09-10T21:19:03.100Z"
+}

@@ -109,27 +109,39 @@ const MAX_DEPTH = 24;
 const SKIP_KEYS = new Set(["_id", "__v", "createdAt", "updatedAt"]);
 
 /**
+ * Claves que ESCRIBE este pipeline. Nunca se recorren: son su resultado, no ubicaciones que migrar.
+ *
+ * POR QUÉ ESTO ES CRÍTICO Y NO COSMÉTICO
+ * `legacyUrl` guarda la URL del archivo original, que por definición es una imagen del bucket sin
+ * migrar. Sin esta exclusión el recorrido la clasifica `pendiente`, y la corrida SIGUIENTE se
+ * pondría a "migrar" los punteros de reversión: descargaría cada original, lo recodificaría, subiría
+ * una carpeta nueva y sobrescribiría `legacyUrl` con esa copia — destruyendo el único dato que
+ * permite volver atrás y dejando una carpeta huérfana por imagen.
+ *
+ * Se detectó justo así: tras la primera corrida real (155 medios, 0 fallos) el inventario seguía
+ * mostrando 144 "pendientes", y todos eran `*.legacyUrl`.
+ */
+const PIPELINE_OUTPUT_KEYS = new Set(["variants", "legacyUrl", "legacyStorageKey", "storageKey", "storagePrefix"]);
+
+/**
  * Recorre un documento y devuelve todas las referencias de medios que encuentra.
  *
  * Cuando un valor es un objeto con URL (`asset` o `leaf`), se emite ESE objeto y NO se vuelve a
  * emitir su string interno: si se emitieran los dos, la misma imagen aparecería dos veces y el
- * backfill la procesaría dos veces (una de ellas escribiendo en una ruta que ya no existe). Sí se
- * sigue recorriendo hacia dentro, porque un asset puede contener `variants[]` y una hoja de
- * `landingmedias` puede tener hijos.
+ * backfill la procesaría dos veces (una de ellas escribiendo en una ruta que ya no existe). Se
+ * sigue recorriendo hacia dentro —una hoja de `landingmedias` puede tener hijos— salvo por las
+ * claves de `PIPELINE_OUTPUT_KEYS`, que son lo que este mismo pipeline escribió.
  */
 export function collectMediaRefs(doc: Record<string, unknown>, bucket: string): MediaRef[] {
   const prefix = bucketUrlPrefix(bucket);
   const out: MediaRef[] = [];
 
-  const visit = (node: unknown, path: string, depth: number, insideVariants: boolean): void => {
+  const visit = (node: unknown, path: string, depth: number): void => {
     if (depth > MAX_DEPTH || node === null || node === undefined) return;
 
     if (typeof node === "string") {
       const url = node.trim();
       if (!url) return;
-      // Las URLs de dentro de `variants[]` son derivados que el pipeline ya generó: no son
-      // ubicaciones a migrar, son su resultado.
-      if (insideVariants) return;
       if (!url.startsWith(prefix) && !VIDEO_EXTENSION_RE.test(url)) return;
       if (url.startsWith(prefix) && !IMAGE_EXTENSION_RE.test(url) && !VIDEO_EXTENSION_RE.test(url)) return;
       out.push({ path, shape: "string", classification: classify(url, undefined, prefix), url });
@@ -137,7 +149,7 @@ export function collectMediaRefs(doc: Record<string, unknown>, bucket: string): 
     }
 
     if (Array.isArray(node)) {
-      node.forEach((item, index) => visit(item, path ? `${path}.${index}` : String(index), depth + 1, insideVariants));
+      node.forEach((item, index) => visit(item, path ? `${path}.${index}` : String(index), depth + 1));
       return;
     }
 
@@ -148,7 +160,7 @@ export function collectMediaRefs(doc: Record<string, unknown>, bucket: string): 
     const own = rawUrl || rawSrc;
     const urlKey = rawUrl ? "url" : "src";
 
-    if (own && !insideVariants) {
+    if (own) {
       out.push({
         path,
         shape: rawUrl ? "asset" : "leaf",
@@ -162,11 +174,13 @@ export function collectMediaRefs(doc: Record<string, unknown>, bucket: string): 
       if (SKIP_KEYS.has(key)) continue;
       // La URL propia del contenedor ya se emitió arriba: no volver a entrar por ella.
       if (own && key === urlKey) continue;
-      visit(value, path ? `${path}.${key}` : key, depth + 1, insideVariants || key === "variants");
+      // Lo que este pipeline escribió no es trabajo pendiente para este pipeline.
+      if (PIPELINE_OUTPUT_KEYS.has(key)) continue;
+      visit(value, path ? `${path}.${key}` : key, depth + 1);
     }
   };
 
-  visit(doc, "", 0, false);
+  visit(doc, "", 0);
   return out;
 }
 

@@ -62,6 +62,55 @@ describe("collectMediaRefs", () => {
     expect(collectMediaRefs(doc, BUCKET)).toHaveLength(1);
   });
 
+  it("IDEMPOTENCIA: no vuelve a emitir lo que el propio backfill escribió", () => {
+    // El caso que se escapó en la primera corrida real: `legacyUrl` guarda la URL del ORIGINAL, que
+    // por definición es una imagen del bucket sin migrar. Sin excluirla, la corrida siguiente
+    // "migraría" los punteros de reversión y destruiría la única forma de volver atrás.
+    const doc = {
+      portada: {
+        url: bucketUrl("fotosresort/999-uuid/orig.webp"),
+        storageKey: "fotosresort/999-uuid/orig.webp",
+        storagePrefix: "fotosresort/999-uuid",
+        width: 2400,
+        height: 1350,
+        variants: [{ width: 480, height: 270, format: "webp", url: bucketUrl("fotosresort/999-uuid/w480.webp") }],
+        legacyUrl: bucketUrl("fotosresort/1788798531335_gimnasio.webp"),
+        legacyStorageKey: "fotosresort/1788798531335_gimnasio.webp",
+      },
+    };
+    const refs = collectMediaRefs(doc, BUCKET);
+    expect(refs).toHaveLength(1);
+    expect(refs[0].path).toBe("portada");
+    expect(refs[0].classification).toBe("migrada");
+    expect(refs.some((r) => r.path.includes("legacy"))).toBe(false);
+  });
+
+  it("un documento ya migrado no produce NINGUNA ubicación pendiente", () => {
+    const doc = {
+      imagenes: [
+        {
+          url: bucketUrl("fotosresort/a/orig.webp"),
+          storageKey: "fotosresort/a/orig.webp",
+          storagePrefix: "fotosresort/a",
+          variants: [],
+          legacyUrl: bucketUrl("fotosresort/original-1.jpg"),
+          legacyStorageKey: "fotosresort/original-1.jpg",
+        },
+      ],
+      json: {
+        hero: {
+          src: bucketUrl("fotosresort/b/orig.webp"),
+          storageKey: "fotosresort/b/orig.webp",
+          storagePrefix: "fotosresort/b",
+          variants: [{ width: 480, height: 270, format: "webp", url: bucketUrl("fotosresort/b/w480.webp") }],
+          legacyUrl: bucketUrl("files/original-2.png"),
+          legacyStorageKey: "files/original-2.png",
+        },
+      },
+    };
+    expect(collectMediaRefs(doc, BUCKET).map((r) => r.classification)).toEqual(["migrada", "migrada"]);
+  });
+
   it("emite el contenedor una sola vez y no también su string interno", () => {
     // Contarlos dos veces haría que el backfill procesara la misma imagen dos veces, y la segunda
     // escribiría en una ruta que ya no existe.
