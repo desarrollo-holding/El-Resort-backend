@@ -3,6 +3,10 @@ import mongoose, { Document, Schema } from "mongoose";
 export type RetiroType = Document & {
   nombre: string;
   descripcion: string;
+  /** Traducción persistida, resuelta la primera vez que se pide `idioma=en`. */
+  nombreEn?: string | null;
+  descripcionEn?: string | null;
+  idealParaEn?: string | null;
   duracionNoches: number;
   fechaInicio: Date;
   fechaFin: Date;
@@ -16,8 +20,10 @@ export type RetiroType = Document & {
     trasladoIncluido: boolean;
   };
   actividades: {
+    _id: mongoose.Types.ObjectId;
     dia: number;
     actividadesDelDia: string[];
+    actividadesDelDiaEn?: string[];
   }[];
   precioPorPersona: number;
   disponible: boolean;
@@ -35,6 +41,18 @@ const RetiroSchema: Schema = new Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    nombreEn: {
+      type: String,
+      default: null,
+    },
+    descripcionEn: {
+      type: String,
+      default: null,
+    },
+    idealParaEn: {
+      type: String,
+      default: null,
     },
     duracionNoches: {
       type: Number,
@@ -72,6 +90,7 @@ const RetiroSchema: Schema = new Schema(
       {
         dia: { type: Number, required: true },
         actividadesDelDia: { type: [String], required: true },
+        actividadesDelDiaEn: { type: [String], default: undefined },
       },
     ],
     precioPorPersona: {

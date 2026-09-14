@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Beneficio, { BeneficioType } from "../models/Beneficio";
 import RoomTypeLocalSpecs from "../models/RoomTypeLocalSpecs";
 import { GcsStorageService } from "./csStorage.service";
-import { LibreTranslateService } from "./libreTranslate.service";
+import { TranslateService } from "./translate.service";
 
 export type BeneficioInput = {
   nombreEs: string;
@@ -52,12 +52,49 @@ export class BeneficiosService {
     if (!nombreEs.trim()) return null;
 
     try {
-      const [translated] = await LibreTranslateService.translateManySpanishToEnglish([nombreEs]);
+      const [translated] = await TranslateService.translateManySpanishToEnglish([nombreEs]);
       const clean = (translated ?? "").trim();
       return clean && clean !== nombreEs ? clean : null;
     } catch (error) {
       console.error("[BeneficiosService.resolveNombreEn]", error);
       return null;
+    }
+  }
+
+  /**
+   * Auto-cura los `nombre.en` que quedaron en `null` (p. ej. porque el traductor falló cuando se
+   * creó/editó el beneficio y nunca se reintentó): traduce los que faltan y persiste el resultado,
+   * para no volver a pagar el costo de traducción en cada visita a la ficha de habitación.
+   */
+  private static async backfillMissingEnglishNames(docs: Array<BeneficioType | Record<string, any>>): Promise<void> {
+    const missing = docs.filter((d) => !d.nombre?.en && typeof d.nombre?.es === "string" && d.nombre.es.trim());
+    if (missing.length === 0) return;
+
+    const [translations] = await Promise.allSettled([
+      TranslateService.translateManySpanishToEnglish(missing.map((d) => d.nombre.es)),
+    ]);
+    if (translations.status !== "fulfilled") return;
+
+    const ops: any[] = [];
+    missing.forEach((doc, i) => {
+      const translated = translations.value[i]?.trim();
+      if (!translated || translated === doc.nombre.es) return;
+
+      doc.nombre.en = translated;
+      ops.push({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: { "nombre.en": translated } },
+        },
+      });
+    });
+
+    if (ops.length > 0) {
+      try {
+        await Beneficio.bulkWrite(ops, { ordered: false });
+      } catch (error) {
+        console.error("[BeneficiosService.backfillMissingEnglishNames] no se pudo persistir:", error);
+      }
     }
   }
 
@@ -181,6 +218,7 @@ export class BeneficiosService {
     const docs = await Beneficio.find({ _id: { $in: ids }, isActive: true })
       .sort({ orden: 1, createdAt: 1 })
       .lean();
+    await this.backfillMissingEnglishNames(docs);
     return docs.map(toDTO);
   }
 
@@ -202,6 +240,7 @@ export class BeneficiosService {
     const docs = await Beneficio.find({ _id: { $in: [...allIds] }, isActive: true })
       .sort({ orden: 1, createdAt: 1 })
       .lean();
+    await this.backfillMissingEnglishNames(docs);
     const byId = new Map(docs.map((d) => [String(d._id), toDTO(d)]));
 
     for (const entry of entries) {

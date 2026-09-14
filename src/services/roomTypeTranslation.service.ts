@@ -1,4 +1,4 @@
-import { LibreTranslateService } from "./libreTranslate.service";
+import { TranslateService } from "./translate.service";
 import { TranslationSanitizer } from "./translationSanitizer.service";
 
 type JsonRecord = Record<string, unknown>;
@@ -193,7 +193,7 @@ export const RoomTypeTranslationService = {
 
     if (texts.length === 0) return cloned;
 
-    const translated = await LibreTranslateService.translateManySpanishToEnglish(texts);
+    const translated = await TranslateService.translateManySpanishToEnglish(texts);
     for (let i = 0; i < setters.length; i++) {
       const t = translated[i] ?? texts[i];
       const sanitized = TranslationSanitizer.sanitizeTranslatedText(t);
@@ -219,7 +219,7 @@ export const RoomTypeTranslationService = {
 
     if (texts.length === 0) return cloned;
 
-    const translated = await LibreTranslateService.translateManySpanishToEnglish(texts);
+    const translated = await TranslateService.translateManySpanishToEnglish(texts);
     for (let i = 0; i < setters.length; i++) {
       const t = translated[i] ?? texts[i];
       const sanitized = TranslationSanitizer.sanitizeTranslatedText(t);
@@ -259,7 +259,7 @@ export const RoomTypeTranslationService = {
 
     if (texts.length === 0) return cloned;
 
-    const translated = await LibreTranslateService.translateManySpanishToEnglish(texts);
+    const translated = await TranslateService.translateManySpanishToEnglish(texts);
     for (let i = 0; i < setters.length; i++) {
       const t = translated[i] ?? texts[i];
       const sanitized = TranslationSanitizer.sanitizeTranslatedText(t);

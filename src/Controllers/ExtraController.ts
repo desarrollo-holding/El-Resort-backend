@@ -1,10 +1,12 @@
 import type { Request, Response } from "express";
+import mongoose from "mongoose";
 import Extra from "../models/Extras";
 import { ExtrasService } from "../services/extras.service";
 import { GcsStorageService } from "../services/csStorage.service";
 import { InvalidImageError } from "../services/imageOptimizer";
 import { uploadImageAsset } from "../services/imageAssetUpload";
 import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
+import { parseIdiomaQuery } from "../utils/idioma";
 
 const parseImageUrlsInput = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -225,7 +227,7 @@ export class ExtraController {
   //Obtener todos los extras
   static getAllExtras = async (req: Request, res: Response) => {
     try {
-      const extras = await Extra.find({});
+      const extras = await Extra.find({}).sort({ orden: 1 });
       res.json(extras);
     } catch (error) {
       console.log(error);
@@ -236,7 +238,8 @@ export class ExtraController {
   //Obtener todos los extras agrupados por grupo
   static getExtrasGroupedByGrupo = async (_req: Request, res: Response) => {
     try {
-      const blocks = await ExtrasService.getExtrasGroupedByGrupo();
+      const idioma = parseIdiomaQuery(_req.query.idioma) ?? "es";
+      const blocks = await ExtrasService.getExtrasGroupedByGrupo(idioma);
       res.json(blocks);
     } catch (error) {
       console.log(error);
@@ -300,6 +303,15 @@ export class ExtraController {
         payload.imagenes = nextImage ? [nextImage] : [];
       }
 
+      // Se editó el español: la traducción vieja quedaría desactualizada, se borra y se vuelve
+      // a generar sola en la próxima visita con idioma=en.
+      if (typeof payload.nombre === "string" && payload.nombre !== currentExtra.nombre) {
+        payload.nombreEn = null;
+      }
+      if (typeof payload.descripcion === "string" && payload.descripcion !== currentExtra.descripcion) {
+        payload.descripcionEn = null;
+      }
+
       const extra = await Extra.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
 
       if (!extra) {
@@ -360,6 +372,41 @@ export class ExtraController {
       res.send("Extra eliminado correctamente");
     } catch (error) {
       console.log(error);
+    }
+  };
+
+  /** Reordena en cascada: aplica el `orden` recibido a cada id y no toca los que no vienen en la lista. */
+  static updateOrderBulk = async (req: Request, res: Response) => {
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({ error: "Base de datos no conectada" });
+        return;
+      }
+
+      const payload = req.body as Array<{ id?: unknown; orden?: unknown }>;
+      if (!Array.isArray(payload) || payload.length === 0) {
+        res.status(400).json({ error: "Debe enviar un array con objetos { id, orden }" });
+        return;
+      }
+
+      const operations = payload
+        .filter(
+          (item): item is { id: string; orden: number } =>
+            !!item && typeof item.id === "string" && Number.isInteger(item.orden)
+        )
+        .map((item) => ({
+          updateOne: { filter: { _id: item.id }, update: { $set: { orden: item.orden } } },
+        }));
+
+      if (operations.length === 0) {
+        res.status(400).json({ error: "No hay elementos válidos para actualizar" });
+        return;
+      }
+
+      await Extra.bulkWrite(operations, { ordered: false });
+      res.json({ success: true });
+    } catch (_error) {
+      res.status(500).json({ error: "Error interno del servidor" });
     }
   };
 }

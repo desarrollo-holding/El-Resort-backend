@@ -55,14 +55,22 @@ app.set("json replacer", (key: string, value: unknown) =>
 // (`MEDIA_PUBLIC_BASE_URL`). Inerte si esa variable no está definida — ver services/publicMedia.ts.
 app.use(publicMediaUrls);
 
-const sanitizeInput = <T extends object>(obj: T): Partial<T> =>
-  _.omit(obj, ["__proto__", "constructor", "prototype"]);
+// `_.omit` no sabe de arrays: si se le pasa uno, lo convierte en un objeto plano
+// ({0: ..., 1: ...}) y pierde `Array.isArray`. Los endpoints que esperan un body
+// array (p. ej. PUT /areas/orden) recursamos manualmente para no perder el tipo.
+const sanitizeInput = <T>(value: T): T => {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeInput(item)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    return _.omit(value as object, ["__proto__", "constructor", "prototype"]) as T;
+  }
+  return value;
+};
 
 app.use((req, res, next) => {
   req.body = sanitizeInput(req.body);
   req.query = sanitizeInput(req.query);
-  // `_.omit` solo quita las claves peligrosas, nunca vacía las que quedan — el `Partial<T>`
-  // que infiere sanitizeInput es más conservador de lo que en verdad devuelve en runtime.
   req.params = sanitizeInput(req.params) as typeof req.params;
   next();
 });

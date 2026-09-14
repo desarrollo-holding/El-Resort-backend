@@ -10,6 +10,9 @@ export type AreaImageField = ImageAssetType | string;
 export type AreaType = Document & {
   nombre: string;
   descripcion: string;
+  /** Traducción persistida de `nombre`/`descripcion`, resuelta la primera vez que se pide `idioma=en`. */
+  nombreEn?: string | null;
+  descripcionEn?: string | null;
   imagenes: AreaImageField[];
   categoria: AreaCategoria;
   orden?: number;
@@ -25,6 +28,14 @@ const AreaSchema: Schema = new Schema({
     type: String,
     default: "",
     trim: true,
+  },
+  nombreEn: {
+    type: String,
+    default: null,
+  },
+  descripcionEn: {
+    type: String,
+    default: null,
   },
   categoria: {
     type: String,

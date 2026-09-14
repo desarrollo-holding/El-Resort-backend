@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { RetirosService } from "../services/retiros.service";
+import { parseIdiomaQuery } from "../utils/idioma";
 
 /**
  * @openapi
@@ -121,9 +122,10 @@ export class RetirosController {
     }
   };
 
-  static list = async (_req: Request, res: Response): Promise<void> => {
+  static list = async (req: Request, res: Response): Promise<void> => {
     try {
-      const items = await RetirosService.listAll();
+      const idioma = parseIdiomaQuery(req.query.idioma) ?? "es";
+      const items = await RetirosService.listAll(idioma);
       res.json(items);
     } catch (error) {
       console.error(error);

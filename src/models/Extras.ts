@@ -9,6 +9,9 @@ export type ExtraType = Document & {
   nombre: string;
   precio: number;
   descripcion: string;
+  /** Traducción persistida de `nombre`/`descripcion`, resuelta la primera vez que se pide `idioma=en`. */
+  nombreEn?: string | null;
+  descripcionEn?: string | null;
   grupo?: string;
   minPersonas: number;
   personas: number;
@@ -26,6 +29,7 @@ export type ExtraType = Document & {
     horarios: string[]; // Lista de horarios en formato "HH:mm"
     stockArea: number;
   }[];
+  orden?: number;
 };
 
 // Esto es de Mongoose
@@ -44,6 +48,14 @@ const ExtraSchema: Schema = new Schema({
     type: String,
     required: true,
     trim: true,
+  },
+  nombreEn: {
+    type: String,
+    default: null,
+  },
+  descripcionEn: {
+    type: String,
+    default: null,
   },
   grupo: {
     type: String,
@@ -99,6 +111,10 @@ const ExtraSchema: Schema = new Schema({
       },
     ],
     required: false,
+  },
+  orden: {
+    type: Number,
+    default: 0,
   },
 });
 

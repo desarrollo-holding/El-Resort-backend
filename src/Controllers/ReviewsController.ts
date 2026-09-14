@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import LandingMedia from "../models/LandingMedia";
 import { GcsStorageService } from "../services/csStorage.service";
 import { InvalidImageError } from "../services/imageOptimizer";
+import { TranslateService } from "../services/translate.service";
+import { parseIdiomaQuery } from "../utils/idioma";
 
 const SECTION_NAME = "reviewsSection";
 const REVIEWS_JSON_KEY = "reviews";
@@ -11,6 +13,8 @@ type ReviewDoc = {
   _id: string;
   name: string;
   text: string;
+  /** Traducción persistida de `text`, resuelta la primera vez que alguien pide `idioma=en`. */
+  textEn?: string;
   rating: number;
   avatarUrl: string;
   order: number;
@@ -29,8 +33,12 @@ function getReviewsArray(doc: any): ReviewDoc[] {
 }
 
 export class ReviewsController {
-  /** GET /api/reviews — público (landing) */
-  static getAll = async (_req: Request, res: Response): Promise<void> => {
+  /**
+   * GET /api/reviews — público (landing). `idioma=en`: usa `textEn` si ya está persistido; si
+   * falta, lo traduce con Gemini y lo guarda ahí mismo, para no volver a pagar el costo de
+   * traducción en cada visita. `name` (nombre del huésped) nunca se traduce.
+   */
+  static getAll = async (req: Request, res: Response): Promise<void> => {
     if (mongoose.connection.readyState !== 1) {
       res.status(503).json({ error: "Base de datos no conectada" });
       return;
@@ -44,7 +52,20 @@ export class ReviewsController {
       }
 
       const reviews = getReviewsArray(doc).sort((a, b) => a.order - b.order);
-      res.json({ success: true, data: reviews });
+
+      const idioma = parseIdiomaQuery(req.query.idioma) ?? "es";
+      if (idioma === "en") {
+        const changed = await TranslateService.backfillEnglishField(reviews, "text", "textEn");
+        if (changed.length > 0) {
+          doc.markModified("json");
+          await doc.save();
+        }
+      }
+
+      const data =
+        idioma === "en" ? reviews.map((r) => ({ ...r, text: r.textEn || r.text })) : reviews;
+
+      res.json({ success: true, data });
     } catch (err) {
       console.error("[ReviewsController.getAll]", err);
       res.status(500).json({ error: "Error al obtener reseñas" });
@@ -131,7 +152,12 @@ export class ReviewsController {
 
       const { name, text, rating } = req.body;
       if (name !== undefined) reviews[idx].name = name;
-      if (text !== undefined) reviews[idx].text = text;
+      if (text !== undefined && text !== reviews[idx].text) {
+        reviews[idx].text = text;
+        // Se editó el español: la traducción vieja quedaría desactualizada, se borra y se
+        // vuelve a generar sola en la próxima visita con idioma=en.
+        delete reviews[idx].textEn;
+      }
       if (rating !== undefined) reviews[idx].rating = Math.max(1, Math.min(5, Number(rating) || 5));
 
       const files = req.files as Express.Multer.File[] | undefined;

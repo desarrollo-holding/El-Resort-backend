@@ -29,6 +29,16 @@ router.get("/", ExtraController.getAllExtras);
 //Obtener todos los extras agrupados por grupo
 router.get("/grouped", ExtraController.getExtrasGroupedByGrupo);
 
+// Reordenar en cascada (array de { id, orden })
+router.put(
+  "/orden",
+  body().isArray({ min: 1 }).withMessage("El body debe ser un array de { id, orden }"),
+  handleInputErrors,
+  authenticate,
+  hasRole(["marketing"]),
+  ExtraController.updateOrderBulk
+);
+
 //Obtener un extra por id
 router.get(
   "/:id",

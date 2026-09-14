@@ -1,4 +1,4 @@
-import { LibreTranslateService } from "./libreTranslate.service";
+import { TranslateService } from "./translate.service";
 
 /**
  * Traducción es→en compartida por los campos locales traducibles de una propiedad
@@ -14,7 +14,7 @@ export class RoomTypeLocalTextService {
     if (!es.trim()) return null;
 
     try {
-      const [translated] = await LibreTranslateService.translateManySpanishToEnglish([es]);
+      const [translated] = await TranslateService.translateManySpanishToEnglish([es]);
       const clean = (translated ?? "").trim();
       return clean && clean !== es ? clean : null;
     } catch (error) {

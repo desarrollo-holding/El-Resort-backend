@@ -6,6 +6,8 @@ import { InvalidImageError } from "../services/imageOptimizer";
 import { uploadImageAsset } from "../services/imageAssetUpload";
 import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
 import { asOptionalString } from "../utils/http";
+import { parseIdiomaQuery } from "../utils/idioma";
+import { TranslateService } from "../services/translate.service";
 
 const parseImagesToDelete = (body: unknown): string[] => {
   if (!body || typeof body !== "object") return [];
@@ -233,7 +235,24 @@ export class AreaController {
 
       const filter = categoria ? { categoria } : {};
       const areas = await Area.find(filter).sort({ orden: 1 }).lean();
-      res.json(areas);
+
+      const idioma = parseIdiomaQuery(_req.query.idioma) ?? "es";
+      if (idioma === "en") {
+        const changedNombre = await TranslateService.backfillEnglishField(areas, "nombre", "nombreEn");
+        const changedDescripcion = await TranslateService.backfillEnglishField(areas, "descripcion", "descripcionEn");
+        const ops = [
+          ...TranslateService.buildSetOps(changedNombre, "nombreEn"),
+          ...TranslateService.buildSetOps(changedDescripcion, "descripcionEn"),
+        ];
+        if (ops.length > 0) await Area.bulkWrite(ops, { ordered: false });
+      }
+
+      const data =
+        idioma === "en"
+          ? areas.map((a) => ({ ...a, nombre: a.nombreEn || a.nombre, descripcion: a.descripcionEn || a.descripcion }))
+          : areas;
+
+      res.json(data);
     } catch (error) {
       console.log(error);
       res.status(500).json({ message: "Error al obtener las áreas", error });
@@ -330,12 +349,16 @@ export class AreaController {
         return;
       }
 
-      if (nombre) {
+      // Se edita el español: la traducción vieja quedaría desactualizada, se borra y se vuelve
+      // a generar sola en la próxima visita con idioma=en.
+      if (nombre && nombre !== area.nombre) {
         area.nombre = nombre;
+        area.nombreEn = null;
       }
 
-      if (descripcion !== undefined) {
+      if (descripcion !== undefined && descripcion !== area.descripcion) {
         area.descripcion = descripcion;
+        area.descripcionEn = null;
       }
 
       const previousImages = normalizeImageAssetArray(area.imagenes);

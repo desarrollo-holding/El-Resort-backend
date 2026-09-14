@@ -1,5 +1,7 @@
 import Extra from "../models/Extras";
 import { normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
+import { TranslateService } from "./translate.service";
+import type { Idioma } from "../utils/idioma";
 
 export type ExtrasByGrupoBlock = {
   grupo: string | null;
@@ -15,8 +17,18 @@ export type ExtraDto = {
 };
 
 export const ExtrasService = {
-  async getExtrasGroupedByGrupo(): Promise<ExtrasByGrupoBlock[]> {
-    const extras = await Extra.find({}).lean();
+  async getExtrasGroupedByGrupo(idioma: Idioma = "es"): Promise<ExtrasByGrupoBlock[]> {
+    const extras = await Extra.find({}).sort({ orden: 1 }).lean();
+
+    if (idioma === "en") {
+      const changedNombre = await TranslateService.backfillEnglishField(extras, "nombre", "nombreEn");
+      const changedDescripcion = await TranslateService.backfillEnglishField(extras, "descripcion", "descripcionEn");
+      const ops = [
+        ...TranslateService.buildSetOps(changedNombre, "nombreEn"),
+        ...TranslateService.buildSetOps(changedDescripcion, "descripcionEn"),
+      ];
+      if (ops.length > 0) await Extra.bulkWrite(ops, { ordered: false });
+    }
 
     const grouped = new Map<string | null, ExtraDto[]>();
 
@@ -24,9 +36,9 @@ export const ExtrasService = {
       const grupo = (typeof extra.grupo === "string" && extra.grupo.trim() ? extra.grupo : null) as string | null;
 
       const normalized: ExtraDto = {
-        nombre: extra.nombre,
+        nombre: (idioma === "en" ? extra.nombreEn : null) || extra.nombre,
         precio: extra.precio,
-        descripcion: extra.descripcion,
+        descripcion: (idioma === "en" ? extra.descripcionEn : null) || extra.descripcion,
         grupo: grupo ?? undefined,
         imagenes: normalizeImageAssetArray(extra.imagenes),
       };
