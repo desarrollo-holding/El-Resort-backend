@@ -21,8 +21,10 @@ export const ExtrasService = {
     const extras = await Extra.find({}).sort({ orden: 1 }).lean();
 
     if (idioma === "en") {
-      const changedNombre = await TranslateService.backfillEnglishField(extras, "nombre", "nombreEn");
-      const changedDescripcion = await TranslateService.backfillEnglishField(extras, "descripcion", "descripcionEn");
+      const [changedNombre, changedDescripcion] = await Promise.all([
+        TranslateService.backfillEnglishField(extras, "nombre", "nombreEn"),
+        TranslateService.backfillEnglishField(extras, "descripcion", "descripcionEn"),
+      ]);
       const ops = [
         ...TranslateService.buildSetOps(changedNombre, "nombreEn"),
         ...TranslateService.buildSetOps(changedDescripcion, "descripcionEn"),

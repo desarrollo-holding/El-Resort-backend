@@ -128,10 +128,15 @@ export const TranslateService = {
     const texts = missing.map((it) => it[sourceField] as string);
     const translated = await this.translateManySpanishToEnglish(texts);
 
+    // No comparar contra el texto original: hay nombres propios y palabras que Gemini
+    // devuelve intactos a propósito (p. ej. «Yoga», «Old Yanashpa»). Si se excluyen de
+    // `changed` por "no cambiaron", nunca se persisten y quedan como "pendientes" para
+    // siempre — cada visita en inglés vuelve a pedirle la traducción a Gemini/LibreTranslate
+    // para ese mismo ítem, lo que hacía lentas TODAS las cargas en inglés indefinidamente.
     const changed: T[] = [];
     missing.forEach((it, i) => {
       const t = translated[i]?.trim();
-      if (t && t !== texts[i]) {
+      if (t) {
         (it as Record<string, unknown>)[targetField as string] = t;
         changed.push(it);
       }

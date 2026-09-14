@@ -238,8 +238,10 @@ export class AreaController {
 
       const idioma = parseIdiomaQuery(_req.query.idioma) ?? "es";
       if (idioma === "en") {
-        const changedNombre = await TranslateService.backfillEnglishField(areas, "nombre", "nombreEn");
-        const changedDescripcion = await TranslateService.backfillEnglishField(areas, "descripcion", "descripcionEn");
+        const [changedNombre, changedDescripcion] = await Promise.all([
+          TranslateService.backfillEnglishField(areas, "nombre", "nombreEn"),
+          TranslateService.backfillEnglishField(areas, "descripcion", "descripcionEn"),
+        ]);
         const ops = [
           ...TranslateService.buildSetOps(changedNombre, "nombreEn"),
           ...TranslateService.buildSetOps(changedDescripcion, "descripcionEn"),

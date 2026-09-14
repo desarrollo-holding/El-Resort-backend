@@ -36,16 +36,13 @@ export const RetirosService = {
     const retiros = await Retiro.find({}).sort({ fechaInicio: 1 }).lean();
 
     if (idioma === "en") {
-      const changedNombre = await TranslateService.backfillEnglishField(retiros, "nombre", "nombreEn");
-      const changedDescripcion = await TranslateService.backfillEnglishField(retiros, "descripcion", "descripcionEn");
-      const changedIdealPara = await TranslateService.backfillEnglishField(retiros, "idealPara", "idealParaEn");
-
       const allActivityDays = retiros.flatMap((r) => r.actividades ?? []);
-      const changedActividades = await TranslateService.backfillEnglishArrayField(
-        allActivityDays,
-        "actividadesDelDia",
-        "actividadesDelDiaEn"
-      );
+      const [changedNombre, changedDescripcion, changedIdealPara, changedActividades] = await Promise.all([
+        TranslateService.backfillEnglishField(retiros, "nombre", "nombreEn"),
+        TranslateService.backfillEnglishField(retiros, "descripcion", "descripcionEn"),
+        TranslateService.backfillEnglishField(retiros, "idealPara", "idealParaEn"),
+        TranslateService.backfillEnglishArrayField(allActivityDays, "actividadesDelDia", "actividadesDelDiaEn"),
+      ]);
 
       const ops = [
         ...TranslateService.buildSetOps(changedNombre, "nombreEn"),
