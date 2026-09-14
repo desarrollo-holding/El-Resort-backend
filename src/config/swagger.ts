@@ -31,6 +31,7 @@ export const createSwaggerSpec = () => {
         { name: "RoomTypeSpecs", description: "Metadatos locales de room types" },
         { name: "Condominios", description: "Gestión de condominios" },
         { name: "Retiros", description: "Gestión de retiros" },
+        { name: "FullDays", description: "Gestión de paquetes full day" },
         { name: "TextosLandingPage", description: "Textos dinámicos de landing por idioma y sección" },
         { name: "LandingPageSections", description: "Secciones reutilizables para textos de landing" },
         { name: "LandingMedia", description: "Configuraciones globales o por sección para media en landing" },
@@ -310,6 +311,68 @@ export const createSwaggerSpec = () => {
           },
           CreateRetiroRequest: {
             allOf: [{ $ref: "#/components/schemas/Retiro" }],
+          },
+          FullDay: {
+            type: "object",
+            description: "El horario es fijo (9am–6pm) y no se guarda: lo muestra el front como texto.",
+            required: [
+              "nombre",
+              "descripcion",
+              "idealPara",
+              "cuposMaximos",
+              "imagen",
+              "incluye",
+              "itinerario",
+              "precioPorPersona",
+              "disponible",
+            ],
+            properties: {
+              _id: { type: "string", example: "68377eb74a64a493f851b34d" },
+              nombre: { type: "string", example: "Full Day Relax" },
+              descripcion: { type: "string", example: "x" },
+              idealPara: { type: "string", example: "Familias y grupos de amigos" },
+              cuposMaximos: { type: "number", example: 20 },
+              imagen: {
+                type: "string",
+                example: "https://elresort.pe/wp-content/uploads/2025/05/fullday-scaled.webp",
+              },
+              incluye: {
+                type: "array",
+                items: { type: "string" },
+                example: ["Almuerzo buffet", "Piscina", "Traslado"],
+              },
+              itinerario: {
+                type: "array",
+                items: { type: "string" },
+                example: ["9:00am Llegada y bienvenida", "1:00pm Almuerzo buffet"],
+              },
+              precioPorPersona: { type: "number", example: 150 },
+              disponible: { type: "boolean", example: true },
+              fechaRegistro: { type: "string", format: "date-time" },
+            },
+          },
+          CreateFullDayRequest: {
+            allOf: [{ $ref: "#/components/schemas/FullDay" }],
+          },
+          CreateFullDayMultipartRequest: {
+            type: "object",
+            description:
+              "Mismos campos que CreateFullDayRequest, pero como form-data: `incluye` e `itinerario` viajan serializados en JSON y `imagen` es el archivo.",
+            properties: {
+              nombre: { type: "string", example: "Full Day Relax" },
+              descripcion: { type: "string" },
+              idealPara: { type: "string", example: "Familias y grupos de amigos" },
+              cuposMaximos: { type: "string", example: "20" },
+              precioPorPersona: { type: "string", example: "150" },
+              disponible: { type: "string", example: "true" },
+              incluye: { type: "string", example: '["Almuerzo buffet","Piscina"]' },
+              itinerario: { type: "string", example: '["9:00am Llegada","1:00pm Almuerzo"]' },
+              imagen: {
+                type: "string",
+                format: "binary",
+                description: "Archivo de imagen. Si se manda como texto, se interpreta como URL ya subida.",
+              },
+            },
           },
           Area: {
             type: "object",
