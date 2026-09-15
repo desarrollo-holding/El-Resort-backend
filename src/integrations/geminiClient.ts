@@ -8,7 +8,11 @@ export const GeminiClient = {
 
     // Use the original @google/genai exports
     const GoogleGenAI = genai?.GoogleGenAI ?? genai?.default ?? genai;
-    const ThinkingLevel = genai?.ThinkingLevel ?? genai?.ThinkingLevel ?? { HIGH: 'HIGH' };
+    const ThinkingLevel = genai?.ThinkingLevel ?? { MINIMAL: 'MINIMAL', LOW: 'LOW' };
+    // Los tokens de "pensamiento" se facturan como output. Traducir con temperature 0 es una
+    // tarea mecánica que no los necesita, así que se pide el nivel mínimo disponible: MINIMAL si
+    // la versión instalada del SDK lo expone, LOW como respaldo.
+    const thinkingLevel = ThinkingLevel.MINIMAL ?? ThinkingLevel.LOW ?? 'LOW';
 
     if (typeof GoogleGenAI !== 'function') {
       throw new Error('GoogleGenAI constructor not found in @google/genai');
@@ -24,9 +28,11 @@ export const GeminiClient = {
     const tools: unknown[] = [];
 
     const config = {
-      temperature: 0,
+      // `GEMINI_TEMPERATURE` estaba documentada en .env.example pero no se usaba: el valor
+      // estaba escrito a mano acá, así que cambiar la variable no hacía nada.
+      temperature: cfg.temperature,
       thinkingConfig: {
-        thinkingLevel: ThinkingLevel.LOW,
+        thinkingLevel,
       },
       tools,
       systemInstruction: [

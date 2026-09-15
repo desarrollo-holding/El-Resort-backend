@@ -55,7 +55,16 @@ export const RetirosService = {
           },
         })),
       ];
-      if (ops.length > 0) await Retiro.bulkWrite(ops, { ordered: false });
+      // La persistencia es best-effort a propósito: si el bulkWrite falla, la respuesta YA está
+      // traducida en memoria y el visitante la recibe igual. Dejarlo sin capturar convertía un
+      // fallo de escritura en un 500 permanente para toda la web en inglés.
+      if (ops.length > 0) {
+        try {
+          await Retiro.bulkWrite(ops, { ordered: false });
+        } catch (error) {
+          console.error("[Retiro] no se pudo persistir la traduccion al ingles:", error);
+        }
+      }
     }
 
     return idioma === "en"

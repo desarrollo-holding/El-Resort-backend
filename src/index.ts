@@ -4,6 +4,26 @@ import colors from "colors";
 import app from "./app";
 
 
+/**
+ * Aviso temprano de configuración del traductor. Sin esto, una `GEMINI_API_KEY` ausente o mal
+ * puesta en Railway no se nota: Gemini falla, el fallback devuelve el español y la web en inglés
+ * se llena de español sin que nadie se entere hasta que un usuario lo reporta.
+ */
+const geminiKeyPresente = Boolean((process.env.GEMINI_API_KEY || "").trim());
+if (!geminiKeyPresente) {
+  console.error(
+    colors.red.bold(
+      "[startup] GEMINI_API_KEY NO configurada: la traduccion al ingles NO funcionara y el contenido quedara en espanol."
+    )
+  );
+} else {
+  console.log(
+    colors.gray(
+      `[startup] Traduccion: GEMINI_API_KEY presente, modelo=${process.env.GEMINI_MODEL || "gemini-flash-latest"}, libretranslate=${process.env.LIBRETRANSLATE_BASE_URL || "(sin configurar)"}`
+    )
+  );
+}
+
 const requestedPort = Number(process.env.PORT || 4000);
 const maxRetries = 10;
 

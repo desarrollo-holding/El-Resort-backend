@@ -30,6 +30,8 @@ import reviewsRoutes from "./Routes/reviewsRoutes";
 import beneficiosRoutes from "./Routes/beneficiosRoutes";
 import claimsRoutes from "./Routes/claimsRoutes";
 import publicMediaUrls from "./middleware/publicMediaUrls";
+import globalLimiter from "./middleware/globalLimiter";
+import { publicContentCache, CONTENT_CACHE_HEADER, ROOMS_CACHE_HEADER } from "./middleware/publicContentCache";
 
 dotenv.config();
 
@@ -42,6 +44,16 @@ if (process.env.DATABASE_URL) {
 const swaggerSpec = createSwaggerSpec();
 
 const app = express();
+
+/**
+ * Railway pone un proxy de borde delante del proceso, así que sin esto `req.ip` es la IP del
+ * proxy y no la del visitante. `express-rate-limit` usa `req.ip` como clave: sin `trust proxy`
+ * TODOS los visitantes caen en el mismo cubo y los límites castigan a usuarios legítimos (5
+ * reclamos en toda la web bloquearían el formulario para el resto) sin frenar a un atacante.
+ * `1` = confiar solo en el primer proxy, que es el de Railway.
+ */
+app.set("trust proxy", 1);
+
 app.use(cors(corsConfig));
 app.use(helmet());
 app.use(morgan("dev"));
@@ -91,25 +103,30 @@ app.use(
   })
 );
 
+// Techo global por IP. No hay ninguna ruta que legítimamente necesite más que esto desde un solo
+// cliente, y acota el daño de un bot que golpee en bucle los endpoints públicos de contenido
+// (que son los que, con la caché fría, pueden llegar al traductor).
+app.use("/api", globalLimiter);
+
 app.use("/api/auth", authRoutes);
-app.use("/api/extras", extraRoutes);
-app.use("/api/areas", areaRoutes);
+app.use("/api/extras", publicContentCache(CONTENT_CACHE_HEADER), extraRoutes);
+app.use("/api/areas", publicContentCache(CONTENT_CACHE_HEADER), areaRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/customfields", customFieldsRoutes);
 app.use("/api/rates", ratesRoutes);
-app.use("/api/rooms", roomsRoutes);
+app.use("/api/rooms", publicContentCache(ROOMS_CACHE_HEADER), roomsRoutes);
 app.use("/api/taxes", taxesRoutes);
 app.use("/api/items", itemsRoutes);
 app.use("/api/izipay", izipayRoutes);
-app.use("/api/room-type-specs", roomTypeLocalSpecsRoutes);
+app.use("/api/room-type-specs", publicContentCache(ROOMS_CACHE_HEADER), roomTypeLocalSpecsRoutes);
 app.use("/api/condominios", condominiosRoutes);
-app.use("/api/retiros", retirosRoutes);
-app.use("/api/full-days", fullDaysRoutes);
-app.use("/api/textos-landing-page", textosLandingPageRoutes);
-app.use("/api/landing-page-sections", landingPageSectionsRoutes);
-app.use("/api/landing-media", landingMediaRoutes);
-app.use("/api/reviews", reviewsRoutes);
-app.use("/api/beneficios", beneficiosRoutes);
+app.use("/api/retiros", publicContentCache(CONTENT_CACHE_HEADER), retirosRoutes);
+app.use("/api/full-days", publicContentCache(CONTENT_CACHE_HEADER), fullDaysRoutes);
+app.use("/api/textos-landing-page", publicContentCache(CONTENT_CACHE_HEADER), textosLandingPageRoutes);
+app.use("/api/landing-page-sections", publicContentCache(CONTENT_CACHE_HEADER), landingPageSectionsRoutes);
+app.use("/api/landing-media", publicContentCache(CONTENT_CACHE_HEADER), landingMediaRoutes);
+app.use("/api/reviews", publicContentCache(CONTENT_CACHE_HEADER), reviewsRoutes);
+app.use("/api/beneficios", publicContentCache(CONTENT_CACHE_HEADER), beneficiosRoutes);
 app.use("/api/translate", translateRoutes);
 app.use("/api/claims", claimsRoutes);
 

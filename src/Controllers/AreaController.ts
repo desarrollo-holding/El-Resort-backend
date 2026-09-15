@@ -246,7 +246,16 @@ export class AreaController {
           ...TranslateService.buildSetOps(changedNombre, "nombreEn"),
           ...TranslateService.buildSetOps(changedDescripcion, "descripcionEn"),
         ];
-        if (ops.length > 0) await Area.bulkWrite(ops, { ordered: false });
+        // La persistencia es best-effort a propósito: si el bulkWrite falla, la respuesta YA está
+        // traducida en memoria y el visitante la recibe igual. Dejarlo sin capturar convertía un
+        // fallo de escritura en un 500 permanente para toda la web en inglés.
+        if (ops.length > 0) {
+          try {
+            await Area.bulkWrite(ops, { ordered: false });
+          } catch (error) {
+            console.error("[Area] no se pudo persistir la traduccion al ingles:", error);
+          }
+        }
       }
 
       const data =

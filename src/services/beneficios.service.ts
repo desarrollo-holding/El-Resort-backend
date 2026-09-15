@@ -54,7 +54,11 @@ export class BeneficiosService {
     try {
       const [translated] = await TranslateService.translateManySpanishToEnglish([nombreEs]);
       const clean = (translated ?? "").trim();
-      return clean && clean !== nombreEs ? clean : null;
+      // No se descarta una traducción por ser idéntica al original: amenities como «Wifi»,
+      // «Yoga» o «Spa» traducen a sí mismas. Descartarlas dejaba `nombre.en` en null para
+      // siempre, así que volvían a la cola de pendientes en CADA lectura — el mismo bucle ya
+      // documentado en `TranslateService.backfillEnglishField`.
+      return clean || null;
     } catch (error) {
       console.error("[BeneficiosService.resolveNombreEn]", error);
       return null;
@@ -77,8 +81,10 @@ export class BeneficiosService {
 
     const ops: any[] = [];
     missing.forEach((doc, i) => {
-      const translated = translations.value[i]?.trim();
-      if (!translated || translated === doc.nombre.es) return;
+      // Mismo criterio que arriba: se persiste aunque la traducción coincida con el español.
+      // Si el traductor no devolvió nada, se persiste el original para que el beneficio salga
+      // de "pendientes" en vez de reintentarse en cada visita a la ficha de habitación.
+      const translated = translations.value[i]?.trim() || doc.nombre.es;
 
       doc.nombre.en = translated;
       ops.push({

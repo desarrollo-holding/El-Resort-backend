@@ -57,8 +57,15 @@ export class ReviewsController {
       if (idioma === "en") {
         const changed = await TranslateService.backfillEnglishField(reviews, "text", "textEn");
         if (changed.length > 0) {
-          doc.markModified("json");
-          await doc.save();
+          // Best-effort: la respuesta ya está traducida en memoria. Si el save falla (p. ej. el
+          // hook `pre("validate")` del modelo rechaza un documento heredado sin `sectionId`), el
+          // visitante igual ve el inglés; sin este catch, cada visita en inglés daba un 500.
+          try {
+            doc.markModified("json");
+            await doc.save();
+          } catch (error) {
+            console.error("[ReviewsController.getAll] no se pudo persistir textEn:", error);
+          }
         }
       }
 

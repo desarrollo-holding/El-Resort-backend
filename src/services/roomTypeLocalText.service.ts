@@ -16,7 +16,11 @@ export class RoomTypeLocalTextService {
     try {
       const [translated] = await TranslateService.translateManySpanishToEnglish([es]);
       const clean = (translated ?? "").trim();
-      return clean && clean !== es ? clean : null;
+      // No se descarta una traducción por ser idéntica al original: los nombres propios
+      // («Yanashpa», «Gaia») vuelven intactos a propósito. Descartarlos dejaba el campo `en` en
+      // `null` para siempre, así que cada lectura en inglés volvía a pedir esa traducción — el
+      // mismo bucle que ya está documentado en `TranslateService.backfillEnglishField`.
+      return clean || null;
     } catch (error) {
       console.error("[RoomTypeLocalTextService.resolveEnglishText]", error);
       return null;

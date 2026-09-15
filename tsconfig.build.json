@@ -1,0 +1,11 @@
+{
+  // Config usada por `npm run build` (el que corre Railway). Hereda todo de tsconfig.json y solo
+  // saca los tests del artefacto: sin esto, `tsc` compilaba los `*.test.ts` dentro de `dist/`, lo
+  // que (a) mete codigo de test y sus mocks en la imagen de produccion y (b) hace que `vitest`
+  // recoja los `.test.js` compilados y falle al intentar cargarlos como CommonJS.
+  //
+  // El tsconfig.json raiz SI incluye los tests, para que el editor y `tsc --noEmit` los sigan
+  // verificando de tipos.
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+}
