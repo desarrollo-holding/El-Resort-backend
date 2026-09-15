@@ -5,6 +5,8 @@ export type RoomTypeReducedModel = {
   roomTypeName: string;
   roomTypePhotos?: string[];
   portada?: string | null;
+  /** Ya se incluye en la respuesta lite (`includePortadaMenu: true` en `listRoomTypesReducedCatalogWithLocalPricing`). */
+  portadaMenu?: string | null;
   posicion_fotos_portadas?: Record<string, unknown> | null;
   maxGuests?: number;
   bedroomsCount?: number;
