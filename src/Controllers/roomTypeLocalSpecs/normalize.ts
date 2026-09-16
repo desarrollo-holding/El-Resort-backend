@@ -24,6 +24,7 @@ export type UpdatePayload = {
   condominioID?: string;
   bedrooms?: BedroomInput[];
   video_url?: string[];
+  video_url_mobile?: string[];
   extraGalleryImages?: string[];
   portada_video?: string | null;
   pricing?: {
@@ -60,6 +61,7 @@ export const normalizePayload = (req: Request): UpdatePayload => {
 export type NormalizedFiles = {
   bedroomFilesByKey: Map<string, Express.Multer.File[]>;
   videoFiles: Express.Multer.File[];
+  videoMobileFiles: Express.Multer.File[];
   extraGalleryImageFiles: Express.Multer.File[];
   portadaVideoImageFiles: Express.Multer.File[];
   portadaImageFiles: Express.Multer.File[];
@@ -69,6 +71,7 @@ export type NormalizedFiles = {
 export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
   const bedroomFilesByKey = new Map<string, Express.Multer.File[]>();
   const videoFiles: Express.Multer.File[] = [];
+  const videoMobileFiles: Express.Multer.File[] = [];
   const extraGalleryImageFiles: Express.Multer.File[] = [];
   const portadaVideoImageFiles: Express.Multer.File[] = [];
   const portadaImageFiles: Express.Multer.File[] = [];
@@ -78,6 +81,11 @@ export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles 
   for (const file of files) {
     if (file.fieldname === "videoFiles") {
       videoFiles.push(file);
+      continue;
+    }
+
+    if (file.fieldname === "videoMobileFiles") {
+      videoMobileFiles.push(file);
       continue;
     }
 
@@ -105,7 +113,7 @@ export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles 
     if (!match) {
       throw toHttpError(
         400,
-        `Campo de archivo invalido: ${file.fieldname}. Usa bedroomFiles[<key>], videoFiles o extraGalleryImageFiles`
+        `Campo de archivo invalido: ${file.fieldname}. Usa bedroomFiles[<key>], videoFiles, videoMobileFiles o extraGalleryImageFiles`
       );
     }
 
@@ -119,7 +127,7 @@ export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles 
     bedroomFilesByKey.set(key, bucket);
   }
 
-  return { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles };
+  return { bedroomFilesByKey, videoFiles, videoMobileFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles };
 };
 
 export const normalizeBedrooms = (value: unknown): BedroomInput[] => {
@@ -262,12 +270,26 @@ export const assertImageFiles = (files: Express.Multer.File[], fieldName: string
   }
 };
 
+/** Contenedores de video habituales; el formato lo elige el admin, acá no se acota a uno. */
+const VIDEO_FILE_EXTENSION_RE = /\.(mp4|m4v|webm|mov|ogv|ogg|avi|mkv|mpe?g|3gp|wmv|flv|ts|mts)$/i;
+
+/**
+ * Acepta por MIME **o** por extensión, y no rechaza por un MIME genérico. Windows y varios
+ * navegadores móviles mandan un `.webm` o un `.mov` como `application/octet-stream` (o sin MIME):
+ * exigir `video/*` devolvía un 400 sobre archivos válidos, y el admin solo veía que la subida
+ * "no funcionaba". Solo se rechaza lo que declara ser otra cosa y encima no tiene extensión de
+ * video (una imagen, un PDF).
+ */
 export const assertVideoFiles = (files: Express.Multer.File[], fieldName: string): void => {
   for (const file of files) {
-    const mimeType = typeof file.mimetype === "string" ? file.mimetype.toLowerCase() : "";
-    if (!mimeType.startsWith("video/")) {
-      throw toHttpError(400, `${fieldName} solo acepta archivos de video`);
-    }
+    const mimeType = typeof file.mimetype === "string" ? file.mimetype.trim().toLowerCase() : "";
+    const originalName = typeof file.originalname === "string" ? file.originalname : "";
+
+    if (!mimeType || mimeType === "application/octet-stream") continue;
+    if (mimeType.startsWith("video/")) continue;
+    if (VIDEO_FILE_EXTENSION_RE.test(originalName)) continue;
+
+    throw toHttpError(400, `${fieldName} solo acepta archivos de video (llego ${mimeType})`);
   }
 };
 

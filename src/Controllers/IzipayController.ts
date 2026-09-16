@@ -7,6 +7,7 @@ import { getIzipayResortConfigFromEnv } from "../config/izipay";
 import { checkIzipayHash, parseIzipayAnswerJson } from "../utils/izipaySignature";
 import { formatCloudbedsError } from "../utils/http";
 
+import { sendErrorResponse } from "../utils/errors";
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 
@@ -132,7 +133,7 @@ export class IzipayController {
         res.status(error.status || 502).json({ error: "Error al conectar con Izipay" });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al preparar el formulario de pago");
     }
   };
 
@@ -246,7 +247,7 @@ export class IzipayController {
         res.status(error.status || 502).json({ error: "Error al conectar con Izipay" });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al preparar el formulario de pago");
     }
   };
 

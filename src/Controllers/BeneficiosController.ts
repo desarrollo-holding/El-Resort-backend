@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { BeneficiosService, type BeneficioIconFile } from "../services/beneficios.service";
 import { InvalidImageError } from "../services/imageOptimizer";
 
+import { sendErrorResponse } from "../utils/errors";
 /** El icono llega como `icono` en un multipart (`upload.any()` en las rutas). */
 const pickIconFile = (req: Request): BeneficioIconFile | undefined => {
   const files = req.files as Express.Multer.File[] | undefined;
@@ -65,7 +66,11 @@ export class BeneficiosController {
   static list = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
       // Solo un usuario autenticado de marketing puede ver los desactivados.
@@ -76,7 +81,7 @@ export class BeneficiosController {
       res.json({ success: true, data });
     } catch (error) {
       console.error("[BeneficiosController.list]", error);
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener los beneficios");
     }
   };
 
@@ -109,7 +114,11 @@ export class BeneficiosController {
   static create = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -143,7 +152,7 @@ export class BeneficiosController {
         res.status(400).json({ error: error.message });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al crear el beneficio");
     }
   };
 
@@ -179,7 +188,11 @@ export class BeneficiosController {
   static update = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -206,7 +219,7 @@ export class BeneficiosController {
         res.status(400).json({ error: error.message });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al actualizar el beneficio");
     }
   };
 
@@ -235,7 +248,11 @@ export class BeneficiosController {
   static reorder = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -258,7 +275,7 @@ export class BeneficiosController {
       res.json({ success: true, data: { modified } });
     } catch (error) {
       console.error("[BeneficiosController.reorder]", error);
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al guardar el orden de los beneficios");
     }
   };
 
@@ -281,7 +298,11 @@ export class BeneficiosController {
   static remove = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -293,7 +314,7 @@ export class BeneficiosController {
       res.json({ success: true });
     } catch (error) {
       console.error("[BeneficiosController.remove]", error);
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al eliminar el beneficio");
     }
   };
 }

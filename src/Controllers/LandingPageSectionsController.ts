@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { LandingPageSectionsService } from "../services/landingPageSections.service";
 
+import { sendErrorResponse } from "../utils/errors";
 const isMongoDuplicateKeyError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false;
   return (error as { code?: unknown }).code === 11000;
@@ -55,7 +56,11 @@ export class LandingPageSectionsController {
   static create = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -67,21 +72,25 @@ export class LandingPageSectionsController {
         res.status(409).json({ error: "Ya existe una sección con ese nombre" });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al crear la sección del landing");
     }
   };
 
   static list = async (_req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
       const list = await LandingPageSectionsService.listAll();
       res.json({ success: true, data: list });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al obtener las secciones del landing");
     }
   };
 }

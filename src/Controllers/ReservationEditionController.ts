@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { ReservationService } from "../services/reservation.service";
 import { ReservationEditionService } from "../services/reservationEdition.service";
 import { asOptionalString, formatCloudbedsError } from "../utils/http";
+import { sendErrorResponse } from "../utils/errors";
 
 /**
  * @openapi
@@ -51,7 +52,7 @@ export class ReservationEditionController {
         res.status(400).json({ error: message });
         return;
       }
-      res.status(500).json({ error: message });
+      sendErrorResponse(res, error, "Error al confirmar la reserva");
     }
   };
 }

@@ -6,6 +6,7 @@ import { InvalidImageError } from "../services/imageOptimizer";
 import { TranslateService } from "../services/translate.service";
 import { parseIdiomaQuery } from "../utils/idioma";
 
+import { sendErrorResponse } from "../utils/errors";
 const SECTION_NAME = "reviewsSection";
 const REVIEWS_JSON_KEY = "reviews";
 
@@ -40,7 +41,11 @@ export class ReviewsController {
    */
   static getAll = async (req: Request, res: Response): Promise<void> => {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -75,14 +80,18 @@ export class ReviewsController {
       res.json({ success: true, data });
     } catch (err) {
       console.error("[ReviewsController.getAll]", err);
-      res.status(500).json({ error: "Error al obtener reseñas" });
+      sendErrorResponse(res, err, "Error al obtener las reseñas");
     }
   };
 
   /** POST /api/reviews — crear reseña (dashboard, multipart) */
   static create = async (req: Request, res: Response): Promise<void> => {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -131,14 +140,18 @@ export class ReviewsController {
         res.status(400).json({ error: err.message });
         return;
       }
-      res.status(500).json({ error: "Error al crear reseña" });
+      sendErrorResponse(res, err, "Error al crear la reseña");
     }
   };
 
   /** PUT /api/reviews/:reviewId — actualizar reseña (dashboard, multipart) */
   static update = async (req: Request, res: Response): Promise<void> => {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -190,14 +203,18 @@ export class ReviewsController {
         res.status(400).json({ error: err.message });
         return;
       }
-      res.status(500).json({ error: "Error al actualizar reseña" });
+      sendErrorResponse(res, err, "Error al actualizar la reseña");
     }
   };
 
   /** DELETE /api/reviews/:reviewId — eliminar reseña */
   static remove = async (req: Request, res: Response): Promise<void> => {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -224,14 +241,18 @@ export class ReviewsController {
       res.json({ success: true });
     } catch (err) {
       console.error("[ReviewsController.remove]", err);
-      res.status(500).json({ error: "Error al eliminar reseña" });
+      sendErrorResponse(res, err, "Error al eliminar la reseña");
     }
   };
 
   /** PATCH /api/reviews/reorder — reordenar reseñas */
   static reorder = async (req: Request, res: Response): Promise<void> => {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -267,7 +288,7 @@ export class ReviewsController {
       res.json({ success: true, data: reordered });
     } catch (err) {
       console.error("[ReviewsController.reorder]", err);
-      res.status(500).json({ error: "Error al reordenar reseñas" });
+      sendErrorResponse(res, err, "Error al guardar el orden de las reseñas");
     }
   };
 }

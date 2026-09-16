@@ -31,6 +31,7 @@ import beneficiosRoutes from "./Routes/beneficiosRoutes";
 import claimsRoutes from "./Routes/claimsRoutes";
 import publicMediaUrls from "./middleware/publicMediaUrls";
 import globalLimiter from "./middleware/globalLimiter";
+import { apiNotFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { publicContentCache, CONTENT_CACHE_HEADER, ROOMS_CACHE_HEADER } from "./middleware/publicContentCache";
 
 dotenv.config();
@@ -130,21 +131,11 @@ app.use("/api/beneficios", publicContentCache(CONTENT_CACHE_HEADER), beneficiosR
 app.use("/api/translate", translateRoutes);
 app.use("/api/claims", claimsRoutes);
 
-app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (
-    err &&
-    typeof err === "object" &&
-    (err as { type?: unknown }).type === "entity.parse.failed" &&
-    typeof (err as { status?: unknown }).status === "number"
-  ) {
-    res.status(400).json({ error: "JSON inválido (revisa comas finales y comillas dobles)" });
-    return;
-  }
+// Cualquier ruta /api que no exista: JSON en vez de la página HTML de Express.
+app.use("/api", apiNotFoundHandler);
 
-  next(err);
-});
-
-
-// mostrar los errores bonitos
+// SIEMPRE el último. Convierte cualquier error (multer, body-parser, Mongo, GCS, o uno sin
+// clasificar) en un JSON con mensaje en español, qué revisar y un `errorId` para los logs.
+app.use(errorHandler);
 
 export default app;

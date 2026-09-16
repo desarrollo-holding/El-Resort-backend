@@ -6,7 +6,7 @@ import { parseIdiomaQuery } from "../../utils/idioma";
 import { RoomTypeTranslationService } from "../../services/roomTypeTranslation.service";
 import { BeneficiosService } from "../../services/beneficios.service";
 import { RoomTypeLocalTextService } from "../../services/roomTypeLocalText.service";
-import { toHttpError, getErrorStatus } from "../../utils/errors";
+import { toHttpError } from "../../utils/errors";
 import {
   isMongoDuplicateKeyError,
   normalizePayload,
@@ -36,17 +36,22 @@ import {
 } from "./imageAssetSync";
 import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } from "../../models/shared/imageAsset";
 
+import { sendErrorResponse } from "../../utils/errors";
 const MAX_ROOM_TYPE_ID_ATTEMPTS = 30;
 
 export const create = async (req: Request, res: Response): Promise<void> => {
   const tracker: UploadTracker = { uploadedFileIds: [] };
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
-    const { roomTypeName, roomTypeDescription, bedrooms, bathroomsCount, titleColor, condominioID, video_url, extraGalleryImages, portada_video, portada, portadaMenu, pricing, posicion_fotos_portadas } = req.body as {
+    const { roomTypeName, roomTypeDescription, bedrooms, bathroomsCount, titleColor, condominioID, video_url, video_url_mobile, extraGalleryImages, portada_video, portada, portadaMenu, pricing, posicion_fotos_portadas } = req.body as {
       roomTypeName: string;
       roomTypeDescription?: string;
       bathroomsCount: number;
@@ -54,6 +59,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
       bedrooms: Array<{ number: number; description?: string; photos?: string[] }>;
       condominioID?: string;
       video_url?: string[];
+      video_url_mobile?: string[];
       extraGalleryImages?: string[];
       portada_video?: string;
       portada?: string;
@@ -72,6 +78,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     const roomTypeDescriptionEs = typeof roomTypeDescription === "string" ? roomTypeDescription.trim() : "";
 
     const normalizedVideoUrls = normalizeStringArray(video_url, "video_url") ?? [];
+    const normalizedVideoMobileUrls = normalizeStringArray(video_url_mobile, "video_url_mobile") ?? [];
     const normalizedExtraGalleryImages = normalizeStringArray(extraGalleryImages, "extraGalleryImages") ?? [];
     const normalizedPricing = normalizePricing(pricing, "pricing");
 
@@ -151,6 +158,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
           }))
         : [],
       video_url: normalizedVideoUrls,
+      video_url_mobile: normalizedVideoMobileUrls,
       portada: portada_value,
       portadaMenu: portadaMenu_value,
       portada_video: portada_video_value,
@@ -183,14 +191,18 @@ export const create = async (req: Request, res: Response): Promise<void> => {
       res.status(409).json({ error: "Ya existe un registro con ese roomTypeID" });
       return;
     }
-    res.status(500).json({ error: "Error interno del servidor" });
+    sendErrorResponse(res, error, "Error al crear la ficha de la habitación");
   }
 };
 
 export const getByRoomTypeID = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -288,8 +300,8 @@ export const getByRoomTypeID = async (req: Request, res: Response): Promise<void
     }
 
     res.json(payload);
-  } catch (_error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+  } catch (error) {
+    sendErrorResponse(res, error, "Error al obtener la ficha de la habitación");
   }
 };
 
@@ -298,7 +310,11 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
 
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -326,6 +342,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
     const condominioID = payload.condominioID;
     const bedrooms = normalizeBedrooms(payload.bedrooms);
     const videoUrls = normalizeStringArray(payload.video_url, "video_url");
+    const videoMobileUrls = normalizeStringArray(payload.video_url_mobile, "video_url_mobile");
     const extraGalleryImages = normalizeStringArray(payload.extraGalleryImages, "extraGalleryImages");
     const portadaVideoRaw = payload.portada_video;
     const portadaRaw = payload.portada;
@@ -336,9 +353,10 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
     const roomTypeDescriptionPayload = normalizeTranslatableText(payload.roomTypeDescription, "roomTypeDescription");
     const maxGuestsPayload = payload.maxGuests;
     const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
-    const { bedroomFilesByKey, videoFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles } = normalizeFileMap(files);
+    const { bedroomFilesByKey, videoFiles, videoMobileFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles } = normalizeFileMap(files);
 
     assertVideoFiles(videoFiles, "videoFiles");
+    assertVideoFiles(videoMobileFiles, "videoMobileFiles");
     assertImageFiles(extraGalleryImageFiles, "extraGalleryImageFiles");
     assertImageFiles(portadaVideoImageFiles, "portadaVideoImageFiles");
     assertImageFiles(portadaImageFiles, "portadaImageFiles");
@@ -350,6 +368,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       titleColor === undefined &&
       condominioID === undefined &&
       videoUrls === undefined &&
+      videoMobileUrls === undefined &&
       extraGalleryImages === undefined &&
       pricing === undefined &&
       beneficios === undefined &&
@@ -357,6 +376,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       roomTypeDescriptionPayload === undefined &&
       maxGuestsPayload === undefined &&
       videoFiles.length === 0 &&
+      videoMobileFiles.length === 0 &&
       extraGalleryImageFiles.length === 0 &&
       portadaImageFiles.length === 0 &&
       portadaMenuImageFiles.length === 0 &&
@@ -400,6 +420,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       condominioID: mongoose.Types.ObjectId;
       bedrooms: Array<{ number: number; description?: string; photos: ImageAssetType[] }>;
       video_url: string[];
+      video_url_mobile: string[];
       extraGalleryImages: ImageAssetType[];
       portada_video?: string | null;
       portada?: ImageAssetType | null;
@@ -480,6 +501,15 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       }
 
       update.video_url = Array.from(new Set([...(videoUrls ?? []), ...uploadedVideoUrls]));
+    }
+
+    if (videoMobileUrls !== undefined || videoMobileFiles.length > 0) {
+      const uploadedVideoMobileUrls: string[] = [];
+      for (const file of videoMobileFiles) {
+        uploadedVideoMobileUrls.push(await uploadVideoFile(file, tracker));
+      }
+
+      update.video_url_mobile = Array.from(new Set([...(videoMobileUrls ?? []), ...uploadedVideoMobileUrls]));
     }
 
     // Si se envió archivo de portada, subir la primera imagen y usar su URL
@@ -607,12 +637,6 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       await rollbackUploads(tracker.uploadedFileIds);
     }
 
-    const status = getErrorStatus(error);
-    if (status !== 500) {
-      res.status(status).json({ error: (error as Error).message || "Error de validacion" });
-      return;
-    }
-
-    res.status(500).json({ error: "Error interno del servidor" });
+    sendErrorResponse(res, error, "Error al guardar la ficha de la habitación");
   }
 };

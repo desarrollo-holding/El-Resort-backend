@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { TextosLandingPageService } from "../services/textosLandingPage.service";
 import { TranslateService } from "../services/translate.service";
 
+import { sendErrorResponse } from "../utils/errors";
 const isMongoDuplicateKeyError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") return false;
   return (error as { code?: unknown }).code === 11000;
@@ -185,7 +186,11 @@ export class TextosLandingPageController {
   static create = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -197,20 +202,18 @@ export class TextosLandingPageController {
         res.status(409).json({ error: "Ya existe un registro para esa combinacion idioma + sectionId" });
         return;
       }
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      if (message.includes("Debes enviar") || message.includes("json debe ser")) {
-        res.status(400).json({ error: message });
-        return;
-      }
-
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al crear el texto del landing");
     }
   };
 
   static getById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -221,30 +224,38 @@ export class TextosLandingPageController {
         return;
       }
       res.json({ success: true, data: doc });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al obtener el texto del landing");
     }
   };
 
   static list = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
       const idioma = typeof req.query.idioma === "string" ? req.query.idioma.trim() : "";
       const data = await TextosLandingPageService.getAllSectionsByIdioma(idioma);
       res.json(data);
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al obtener los textos del landing");
     }
   };
 
   static getSpanishBySectionId = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -256,15 +267,19 @@ export class TextosLandingPageController {
       }
 
       res.json({ success: true, data: doc });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al obtener los textos en español de la sección");
     }
   };
 
   static translateSectionToEnglish = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -276,23 +291,18 @@ export class TextosLandingPageController {
         return;
       }
 
-      const anyError = error as any;
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      const status = typeof anyError?.status === "number" ? anyError.status : 500;
-
-      if (status >= 400 && status < 500) {
-        res.status(status).json({ error: message });
-        return;
-      }
-
-      res.status(500).json({ error: message });
+      sendErrorResponse(res, error, "Error al traducir la sección al inglés");
     }
   };
 
   static updateById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -334,20 +344,18 @@ export class TextosLandingPageController {
         return;
       }
 
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      if (message.includes("Debes enviar") || message.includes("json debe ser")) {
-        res.status(400).json({ error: message });
-        return;
-      }
-
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al actualizar el texto del landing");
     }
   };
 
   static deleteById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -359,8 +367,8 @@ export class TextosLandingPageController {
       }
 
       res.json({ success: true });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al eliminar el texto del landing");
     }
   };
 }

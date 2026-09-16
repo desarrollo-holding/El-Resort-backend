@@ -8,9 +8,10 @@ import { authenticate } from "../middleware/auth";
 import { hasRole } from "../middleware/hasRole";
 
 const router = Router();
-// Este endpoint mezcla fotos y video en el mismo multipart; el límite global (pensado para fotos)
-// se queda corto para video, así que acá se sube a 200 MB por archivo sin tocar el resto del sitio.
-const upload = createMemoryUpload(50, 200 * 1024 * 1024);
+// Hasta 50 archivos (fotos de dormitorios + video) en el mismo multipart; el tamaño por archivo
+// usa el límite global (MAX_UPLOAD_FILE_SIZE_BYTES/MB, 20 MB por defecto) para que el video no
+// pese tanto como para afectar la performance de carga de la página.
+const upload = createMemoryUpload(50);
 
 // Bulk update of `orden` for multiple roomTypeIDs
 router.put(
@@ -81,6 +82,8 @@ router.post(
   body("bedrooms.*.photos.*").optional().isString().withMessage("Cada photo debe ser string"),
   body("video_url").optional().isArray().withMessage("video_url debe ser un array"),
   body("video_url.*").optional().isString().withMessage("Cada video_url debe ser string"),
+  body("video_url_mobile").optional().isArray().withMessage("video_url_mobile debe ser un array"),
+  body("video_url_mobile.*").optional().isString().withMessage("Cada video_url_mobile debe ser string"),
   body("extraGalleryImages").optional().isArray().withMessage("extraGalleryImages debe ser un array"),
   body("extraGalleryImages.*").optional().isString().withMessage("Cada extraGalleryImages debe ser string"),
   body("pricing").optional().isObject().withMessage("pricing debe ser un objeto"),

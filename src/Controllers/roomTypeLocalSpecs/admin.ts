@@ -6,12 +6,17 @@ import { isMongoDuplicateKeyError, slugifyRoomTypeName, buildRoomTypeIdCandidate
 import { fetchCloudbedsRoomTypesMapSafe, fetchCloudbedsRatesMapSafe } from "./cloudbedsEnrichment";
 import { RoomTypeLocalTextService } from "../../services/roomTypeLocalText.service";
 
+import { sendErrorResponse } from "../../utils/errors";
 const MAX_ROOM_TYPE_ID_ATTEMPTS = 30;
 
 export const updateOrderBulk = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -61,14 +66,18 @@ export const updateOrderBulk = async (req: Request, res: Response): Promise<void
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+    sendErrorResponse(res, error, "Error al guardar el orden de las habitaciones");
   }
 };
 
 export const getAllAdmin = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -131,15 +140,19 @@ export const getAllAdmin = async (req: Request, res: Response): Promise<void> =>
     });
 
     res.json({ success: true, data: enriched });
-  } catch (_error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+  } catch (error) {
+    sendErrorResponse(res, error, "Error al obtener las fichas de las habitaciones");
   }
 };
 
 export const softDelete = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -156,15 +169,19 @@ export const softDelete = async (req: Request, res: Response): Promise<void> => 
     }
 
     res.json({ success: true, data: doc });
-  } catch (_error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+  } catch (error) {
+    sendErrorResponse(res, error, "Error al desactivar la ficha de la habitación");
   }
 };
 
 export const reactivate = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -181,15 +198,19 @@ export const reactivate = async (req: Request, res: Response): Promise<void> => 
     }
 
     res.json({ success: true, data: doc });
-  } catch (_error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+  } catch (error) {
+    sendErrorResponse(res, error, "Error al reactivar la ficha de la habitación");
   }
 };
 
 export const duplicate = async (req: Request, res: Response): Promise<void> => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.status(503).json({ error: "Base de datos no conectada" });
+      res.status(503).json({
+        error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+        code: "DATABASE_UNAVAILABLE",
+        hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+      });
       return;
     }
 
@@ -244,6 +265,6 @@ export const duplicate = async (req: Request, res: Response): Promise<void> => {
       res.status(409).json({ error: "Ya existe un registro con ese roomTypeID" });
       return;
     }
-    res.status(500).json({ error: "Error interno del servidor" });
+    sendErrorResponse(res, error, "Error al duplicar la ficha de la habitación");
   }
 };

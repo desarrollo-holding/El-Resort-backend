@@ -4,6 +4,7 @@ import { GcsStorageService } from "../services/csStorage.service";
 import { InvalidImageError } from "../services/imageOptimizer";
 import { parseIdiomaQuery } from "../utils/idioma";
 
+import { sendErrorResponse } from "../utils/errors";
 type FullDayPayload = {
   nombre?: string;
   descripcion?: string;
@@ -249,7 +250,7 @@ export class FullDaysController {
         return;
       }
       console.error(error);
-      res.status(500).json({ error: "Error al crear el full day" });
+      sendErrorResponse(res, error, "Error al crear el full day");
     }
   };
 
@@ -260,7 +261,7 @@ export class FullDaysController {
       res.json(items);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: "Error al listar full days" });
+      sendErrorResponse(res, error, "Error al obtener los full days");
     }
   };
 
@@ -277,7 +278,7 @@ export class FullDaysController {
       res.json(item);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: "Error al obtener el full day" });
+      sendErrorResponse(res, error, "Error al obtener el full day");
     }
   };
 
@@ -317,7 +318,7 @@ export class FullDaysController {
         return;
       }
       console.error(error);
-      res.status(500).json({ error: "Error al actualizar el full day" });
+      sendErrorResponse(res, error, "Error al actualizar el full day");
     }
   };
 
@@ -334,7 +335,7 @@ export class FullDaysController {
       res.json({ message: "Full day eliminado correctamente" });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: "Error al eliminar el full day" });
+      sendErrorResponse(res, error, "Error al eliminar el full day");
     }
   };
 }

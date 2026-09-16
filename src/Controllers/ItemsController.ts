@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { ItemsService } from "../services/items.service";
 import { asOptionalString, formatCloudbedsError } from "../utils/http";
 
+import { sendErrorResponse } from "../utils/errors";
 /**
  * @openapi
  * /api/items:
@@ -102,7 +103,7 @@ export class ItemsController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener los ítems");
     }
   };
 
@@ -143,7 +144,7 @@ export class ItemsController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al crear el ítem");
     }
   };
 }

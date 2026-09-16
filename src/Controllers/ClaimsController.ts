@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { ClaimsService, type CreateClaimInput } from "../services/claims.service";
 import { asOptionalString } from "../utils/http";
-import { getErrorStatus } from "../utils/errors";
+import { sendErrorResponse } from "../utils/errors";
 
 /**
  * @openapi
@@ -42,7 +42,11 @@ export class ClaimsController {
   static submit = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -75,13 +79,7 @@ export class ClaimsController {
 
       res.status(201).json({ success: true, data: result });
     } catch (error) {
-      const status = getErrorStatus(error);
-      if (status !== 500) {
-        res.status(status).json({ error: (error as Error).message || "Error de validación" });
-        return;
-      }
-      console.error("[ClaimsController.submit]", error);
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al registrar el reclamo");
     }
   };
 }

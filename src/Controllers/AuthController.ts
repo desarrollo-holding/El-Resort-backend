@@ -3,6 +3,7 @@ import User from "../models/User";
 import { hashPassword, checkPassword } from "../utils/auth";
 import { generateJWT } from "../utils/jwt";
 
+import { sendErrorResponse } from "../utils/errors";
 /**
  * @openapi
  * /api/auth/create-account:
@@ -135,7 +136,7 @@ export class AuthController {
       await user.save();
       res.status(201).json({ message: "Usuario creado correctamente." });
     } catch (error) {
-      res.status(500).json({ error: "Hubo un error al crear el usuario." });
+      sendErrorResponse(res, error, "Error al crear el usuario");
     }
   };
 
@@ -158,7 +159,7 @@ export class AuthController {
       const token = generateJWT({ id: user.id, rol: user.rol });
       res.send(token);
     } catch (error) {
-      res.status(500).json({ error: "Hubo un error." });
+      sendErrorResponse(res, error, "Error al iniciar sesión");
     }
   };
 
@@ -197,7 +198,7 @@ export class AuthController {
 
       res.send("Contraseña actualizada correctamente.");
     } catch (error) {
-      res.status(500).json({ error: "Hubo un error al cambiar la contraseña." });
+      sendErrorResponse(res, error, "Error al cambiar la contraseña");
     }
   };
 }

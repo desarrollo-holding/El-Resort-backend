@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { CustomFieldsService } from "../services/customfields.service";
 import { formatCloudbedsError } from "../utils/http";
 
+import { sendErrorResponse } from "../utils/errors";
 /**
  * @openapi
  * /api/customfields:
@@ -45,7 +46,7 @@ export class CustomFieldsController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener los campos personalizados");
     }
   };
 }

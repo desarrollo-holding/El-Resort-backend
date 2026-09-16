@@ -4,8 +4,8 @@ import { LANDING_MEDIA_TIPOS, type LandingMediaTipo } from "../models/LandingMed
 import { LandingMediaService } from "../services/landingMedia.service";
 import { GcsStorageService } from "../services/csStorage.service";
 import { cleanupOrphanedLandingMedia } from "../services/landingMediaOrphanCleanup";
-import { getErrorStatus } from "../utils/errors";
 
+import { sendErrorResponse } from "../utils/errors";
 type JsonRecord = Record<string, unknown>;
 type JsonLike = null | boolean | number | string | JsonLike[] | JsonRecord;
 type MediaKind = "image" | "video" | "file";
@@ -637,7 +637,11 @@ export class LandingMediaController {
 
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -665,30 +669,25 @@ export class LandingMediaController {
        await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
       }
 
-      if (error && typeof error === "object" && (error as { code?: unknown }).code === 11000) {
-        res.status(409).json({ error: "Ya existe una configuración con ese tipo/nombre/sectionId" });
-        return;
-      }
-
-      const status = getErrorStatus(error);
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      res.status(status).json({ error: message });
+      sendErrorResponse(res, error, "Error al crear los medios del landing");
     }
   };
 
   static list = async (_req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
       const data = await LandingMediaService.getConsolidated();
       res.json(data);
     } catch (error) {
-      const status = getErrorStatus(error);
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      res.status(status).json({ error: message });
+      sendErrorResponse(res, error, "Error al obtener los medios del landing");
     }
   };
 
@@ -710,9 +709,7 @@ export class LandingMediaController {
 
       res.json({ success: true, data });
     } catch (error) {
-      const status = getErrorStatus(error);
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      res.status(status).json({ error: message });
+      sendErrorResponse(res, error, "Error al listar los archivos del almacén");
     }
   };
 
@@ -723,16 +720,18 @@ export class LandingMediaController {
 
       res.json({ success: true, data });
     } catch (error) {
-      const status = getErrorStatus(error);
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      res.status(status).json({ error: message });
+      sendErrorResponse(res, error, "Error al eliminar archivos del almacén");
     }
   };
 
   static getById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -742,15 +741,19 @@ export class LandingMediaController {
         return;
       }
       res.json({ success: true, data: doc });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al obtener el medio del landing");
     }
   };
 
   static getByIdentifier = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -777,9 +780,7 @@ export class LandingMediaController {
 
       res.json({ [doc.nombre]: doc.json });
     } catch (error) {
-      const status = getErrorStatus(error);
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      res.status(status).json({ error: message });
+      sendErrorResponse(res, error, "Error al obtener los medios de la sección");
     }
   };
 
@@ -788,7 +789,11 @@ export class LandingMediaController {
 
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -893,21 +898,18 @@ export class LandingMediaController {
       await Promise.allSettled(uploadedFileIds.map((fileId) => GcsStorageService.deleteFile({ fileId })));
       }
 
-      if (error && typeof error === "object" && (error as { code?: unknown }).code === 11000) {
-        res.status(409).json({ error: "Ya existe una configuración con ese tipo/nombre/sectionId" });
-        return;
-      }
-
-      const status = getErrorStatus(error);
-      const message = error instanceof Error ? error.message : "Error interno del servidor";
-      res.status(status).json({ error: message });
+      sendErrorResponse(res, error, "Error al guardar los medios del landing");
     }
   };
 
   static deleteById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -925,8 +927,8 @@ export class LandingMediaController {
       }
 
       res.json({ success: true });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al eliminar el medio del landing");
     }
   };
 }

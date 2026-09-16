@@ -5,6 +5,7 @@ import { ReservationsBookService } from "../services/reservationsBook.service";
 import { ItemsService } from "../services/items.service";
 import { asOptionalBoolean, asOptionalInt, asOptionalString, clamp, formatCloudbedsError } from "../utils/http";
 
+import { sendErrorResponse } from "../utils/errors";
 /**
  * @openapi
  * /api/reservations:
@@ -590,7 +591,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener los orígenes de reserva");
     }
   };
 
@@ -606,7 +607,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener las asignaciones de la reserva");
     }
   };
 
@@ -666,7 +667,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener las reservas con detalle de tarifa");
     }
   };
 
@@ -692,7 +693,7 @@ export class ReservationController {
         res.status(400).json({ error: message });
         return;
       }
-      res.status(500).json({ error: message });
+      sendErrorResponse(res, error, "Error al crear la reserva");
     }
   };
 
@@ -719,7 +720,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al registrar al huésped de la reserva");
     }
   };
 
@@ -737,7 +738,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al crear la reserva");
     }
   };
 
@@ -759,7 +760,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener las notas de la reserva");
     }
   };
 
@@ -802,7 +803,7 @@ export class ReservationController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al añadir la nota a la reserva");
     }
   };
 
@@ -825,7 +826,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener la reserva");
     }
   };
 
@@ -927,7 +928,7 @@ export class ReservationController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener las reservas");
     }
   };
 }

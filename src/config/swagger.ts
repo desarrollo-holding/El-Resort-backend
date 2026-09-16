@@ -456,9 +456,15 @@ export const createSwaggerSpec = () => {
               },
               video_url: {
                 type: "array",
-                description: "URLs publicas de videos del room type",
+                description: "URLs publicas del video de escritorio del room type",
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-1.mp4"],
+              },
+              video_url_mobile: {
+                type: "array",
+                description: "URLs publicas del video vertical para movil; vacio = se usa el de escritorio",
+                items: { type: "string" },
+                example: ["https://storage.example.com/video-1-mobile.mp4"],
               },
               portada: { type: "string", nullable: true, description: "URL de la imagen portada (imagen principal)", example: "https://storage.example.com/cover-main.jpg" },
               portadaMenu: { type: "string", nullable: true, description: "URL de la imagen para menu (portadaMenu)", example: "https://storage.example.com/cover-menu.jpg" },
@@ -575,9 +581,15 @@ export const createSwaggerSpec = () => {
               },
               video_url: {
                 type: "array",
-                description: "URLs de videos que se conservan",
+                description: "URLs del video de escritorio que se conservan",
                 items: { type: "string" },
                 example: ["https://storage.example.com/video-previo.mp4"],
+              },
+              video_url_mobile: {
+                type: "array",
+                description: "URLs del video de movil que se conservan",
+                items: { type: "string" },
+                example: ["https://storage.example.com/video-previo-mobile.mp4"],
               },
               portada: { type: "string", description: "URL de portada (imagen principal) que se conserva (si existe)", nullable: true, example: "https://storage.example.com/cover-previo.jpg" },
               portadaMenu: { type: "string", description: "URL de portadaMenu que se conserva (si existe)", nullable: true, example: "https://storage.example.com/cover-menu-previo.jpg" },
@@ -638,7 +650,12 @@ export const createSwaggerSpec = () => {
               },
               videoFiles: {
                 type: "array",
-                description: "Videos nuevos para anexar a video_url",
+                description: "Videos nuevos (escritorio) para anexar a video_url",
+                items: { type: "string", format: "binary" },
+              },
+              videoMobileFiles: {
+                type: "array",
+                description: "Videos nuevos (movil) para anexar a video_url_mobile",
                 items: { type: "string", format: "binary" },
               },
               extraGalleryImageFiles: {

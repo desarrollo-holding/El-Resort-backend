@@ -1,7 +1,5 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import multer from "multer";
-import type { Request, Response, NextFunction } from "express";
 import { createMemoryUpload } from "../config/upload";
 import { ClaimsController } from "../Controllers/ClaimsController";
 import { handleInputErrors } from "../middleware/validation";
@@ -10,27 +8,10 @@ import claimsLimiter from "../middleware/claimsLimiter";
 const router = Router();
 const upload = createMemoryUpload(5);
 
-const multerErrorHandler = (err: unknown, _req: Request, res: Response, next: NextFunction): void => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === "LIMIT_FILE_SIZE") {
-      res.status(400).json({ error: "Cada archivo debe pesar como máximo 20MB." });
-      return;
-    }
-    if (err.code === "LIMIT_UNEXPECTED_FILE" || err.code === "LIMIT_FILE_COUNT") {
-      res.status(400).json({ error: "Máximo 5 archivos." });
-      return;
-    }
-    res.status(400).json({ error: "No se pudieron procesar los archivos adjuntos." });
-    return;
-  }
-  next(err);
-};
-
 router.post(
   "/",
   claimsLimiter,
   upload.array("attachments", 5),
-  multerErrorHandler,
   body("fullName").trim().notEmpty().withMessage("fullName es requerido"),
   body("documentType").isIn(["DNI", "CE", "PASAPORTE"]).withMessage("documentType inválido"),
   body("documentNumber").trim().notEmpty().withMessage("documentNumber es requerido"),

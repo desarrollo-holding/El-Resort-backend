@@ -8,6 +8,7 @@ import { RoomTypeTranslationService, type LocalEnByRoomTypeID } from "../service
 import RoomTypeLocalSpecs from "../models/RoomTypeLocalSpecs";
 import mongoose from "mongoose";
 
+import { sendErrorResponse } from "../utils/errors";
 /** Inglés local ya persistido para las propiedades pedidas; usado por el pipeline de traducción
  * para no re-traducir en vivo lo que el admin ya guardó (o para no re-traducir texto que ya está
  * en inglés). Sin conexión a Mongo o sin roomTypeIDs, devuelve un Map vacío (cae al comportamiento
@@ -289,7 +290,7 @@ export class RoomsController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener las habitaciones");
     }
   };
 
@@ -351,7 +352,7 @@ export class RoomsController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener los tipos de habitación");
     }
   };
 
@@ -415,7 +416,7 @@ export class RoomsController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener las habitaciones");
     }
   };
 
@@ -511,12 +512,7 @@ export class RoomsController {
         return;
       }
 
-      if (error instanceof Error) {
-        res.status(500).json({ error: error.message });
-        return;
-      }
-
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener las habitaciones");
     }
   };
 
@@ -607,12 +603,7 @@ export class RoomsController {
         return;
       }
 
-      if (error instanceof Error) {
-        res.status(500).json({ error: error.message });
-        return;
-      }
-
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener la habitación");
     }
   };
 }

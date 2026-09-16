@@ -3,6 +3,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import User, { IUser } from "../models/User";
 import { getJwtConfigFromEnv } from "../config/jwt";
 
+import { sendErrorResponse } from "../utils/errors";
 declare global {
   namespace Express {
     interface Request {
@@ -36,7 +37,7 @@ export const authenticate = async (
       secret = getJwtConfigFromEnv().secret;
     } catch (error) {
       console.error((error as Error).message);
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al validar la sesión");
       return;
     }
 

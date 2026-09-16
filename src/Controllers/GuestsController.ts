@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { GuestsService } from "../services/guests.service";
 import { asOptionalString, formatCloudbedsError } from "../utils/http";
 
+import { sendErrorResponse } from "../utils/errors";
 /**
  * @openapi
  * /api/reservations/{reservationID}/guests:
@@ -86,7 +87,7 @@ export class GuestsController {
         res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al registrar al huésped");
     }
   };
 }

@@ -4,6 +4,7 @@ import { GcsStorageService } from "../services/csStorage.service";
 import { InvalidImageError } from "../services/imageOptimizer";
 import { parseIdiomaQuery } from "../utils/idioma";
 
+import { sendErrorResponse } from "../utils/errors";
 type RetiroIncluye = {
   yoga: boolean;
   comidasPorDia: number;
@@ -285,7 +286,7 @@ export class RetirosController {
         return;
       }
       console.error(error);
-      res.status(500).json({ error: "Error al crear el retiro" });
+      sendErrorResponse(res, error, "Error al crear el retiro");
     }
   };
 
@@ -296,7 +297,7 @@ export class RetirosController {
       res.json(items);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: "Error al listar retiros" });
+      sendErrorResponse(res, error, "Error al obtener los retiros");
     }
   };
 
@@ -313,7 +314,7 @@ export class RetirosController {
       res.json(item);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: "Error al obtener el retiro" });
+      sendErrorResponse(res, error, "Error al obtener el retiro");
     }
   };
 
@@ -353,7 +354,7 @@ export class RetirosController {
         return;
       }
       console.error(error);
-      res.status(500).json({ error: "Error al actualizar el retiro" });
+      sendErrorResponse(res, error, "Error al actualizar el retiro");
     }
   };
 
@@ -370,7 +371,7 @@ export class RetirosController {
       res.json({ message: "Retiro eliminado correctamente" });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: "Error al eliminar el retiro" });
+      sendErrorResponse(res, error, "Error al eliminar el retiro");
     }
   };
 }

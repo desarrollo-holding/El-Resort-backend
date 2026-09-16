@@ -4,6 +4,7 @@ import { CondominiosService } from "../services/condominios.service";
 import { GcsStorageService } from "../services/csStorage.service";
 import { InvalidImageError } from "../services/imageOptimizer";
 
+import { sendErrorResponse } from "../utils/errors";
 /**
  * @openapi
  * /api/condominios:
@@ -87,7 +88,11 @@ export class CondominiosController {
 
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -131,14 +136,18 @@ export class CondominiosController {
         res.status(400).json({ error: error.message });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al crear el condominio");
     }
   };
 
   static getById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -149,21 +158,25 @@ export class CondominiosController {
         return;
       }
       res.json({ success: true, data: doc });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al obtener el condominio");
     }
   };
 
   static list = async (_req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
       const list = await CondominiosService.listAll();
       res.json({ success: true, data: list });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al obtener los condominios");
     }
   };
 
@@ -172,7 +185,11 @@ export class CondominiosController {
 
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -224,14 +241,18 @@ export class CondominiosController {
         res.status(400).json({ error: error.message });
         return;
       }
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al actualizar el condominio");
     }
   };
 
   static deleteById = async (req: Request, res: Response): Promise<void> => {
     try {
       if (mongoose.connection.readyState !== 1) {
-        res.status(503).json({ error: "Base de datos no conectada" });
+        res.status(503).json({
+          error: "No hay conexión con la base de datos: el servidor está arriba pero no puede leer ni guardar nada.",
+          code: "DATABASE_UNAVAILABLE",
+          hint: "Revisa DATABASE_URL en las variables del servidor, que el cluster de MongoDB Atlas esté encendido, y que la IP del servidor siga permitida en Network Access de Atlas.",
+        });
         return;
       }
 
@@ -242,8 +263,8 @@ export class CondominiosController {
         return;
       }
       res.json({ success: true });
-    } catch (_error) {
-      res.status(500).json({ error: "Error interno del servidor" });
+    } catch (error) {
+      sendErrorResponse(res, error, "Error al eliminar el condominio");
     }
   };
 }

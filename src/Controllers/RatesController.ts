@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { RatesService } from "../services/rates.service";
 import { asOptionalBoolean, asOptionalInt, asOptionalString, formatCloudbedsError } from "../utils/http";
 
+import { sendErrorResponse } from "../utils/errors";
 const asRequiredString = (value: unknown): string | undefined => asOptionalString(value);
 
 /**
@@ -105,7 +106,7 @@ export class RatesController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener la tarifa");
     }
   };
 
@@ -216,7 +217,7 @@ export class RatesController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener los planes de tarifa");
     }
   };
 }

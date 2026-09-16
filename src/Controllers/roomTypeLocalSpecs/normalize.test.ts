@@ -17,8 +17,8 @@ import {
   buildRoomTypeIdCandidate,
 } from "./normalize";
 
-const file = (fieldname: string, mimetype: string): Express.Multer.File =>
-  ({ fieldname, mimetype } as Express.Multer.File);
+const file = (fieldname: string, mimetype: string, originalname = ""): Express.Multer.File =>
+  ({ fieldname, mimetype, originalname } as Express.Multer.File);
 
 describe("isMongoDuplicateKeyError", () => {
   it("detecta el código 11000", () => {
@@ -36,6 +36,7 @@ describe("normalizeFileMap", () => {
   it("enruta archivos por fieldname conocido", () => {
     const files = [
       file("videoFiles", "video/mp4"),
+      file("videoMobileFiles", "video/mp4"),
       file("extraGalleryImageFiles", "image/png"),
       file("portadaVideoImageFiles", "image/png"),
       file("portadaImageFiles", "image/png"),
@@ -45,6 +46,7 @@ describe("normalizeFileMap", () => {
 
     const result = normalizeFileMap(files);
     expect(result.videoFiles).toHaveLength(1);
+    expect(result.videoMobileFiles).toHaveLength(1);
     expect(result.extraGalleryImageFiles).toHaveLength(1);
     expect(result.portadaVideoImageFiles).toHaveLength(1);
     expect(result.portadaImageFiles).toHaveLength(1);
@@ -199,6 +201,26 @@ describe("assertImageFiles / assertVideoFiles", () => {
   it("lanza para mimetypes incorrectos", () => {
     expect(() => assertImageFiles([file("f", "video/mp4")], "campo")).toThrow();
     expect(() => assertVideoFiles([file("f", "image/png")], "campo")).toThrow();
+  });
+
+  // Windows manda .webm/.mov como octet-stream (o sin MIME): rechazarlos por eso dejaba al admin
+  // con una subida que "no funciona" sobre un archivo perfectamente válido.
+  it("acepta un vídeo por extensión aunque el navegador no mande un MIME de vídeo", () => {
+    expect(() => assertVideoFiles([file("f", "application/octet-stream", "tour.webm")], "campo")).not.toThrow();
+    expect(() => assertVideoFiles([file("f", "", "tour.MOV")], "campo")).not.toThrow();
+    expect(() => assertVideoFiles([file("f", "application/octet-stream", "tour.mp4")], "campo")).not.toThrow();
+  });
+
+  // El formato lo elige el admin: el contenedor no se acota a los que el sitio sirve por defecto.
+  it("acepta contenedores fuera de la lista corta (mkv, avi, mpeg)", () => {
+    expect(() => assertVideoFiles([file("f", "video/x-matroska", "tour.mkv")], "campo")).not.toThrow();
+    expect(() => assertVideoFiles([file("f", "application/octet-stream", "tour.avi")], "campo")).not.toThrow();
+    expect(() => assertVideoFiles([file("f", "video/mpeg", "tour.mpeg")], "campo")).not.toThrow();
+  });
+
+  it("sigue rechazando un archivo que no es vídeo ni por MIME ni por extensión", () => {
+    expect(() => assertVideoFiles([file("f", "application/pdf", "folleto.pdf")], "campo")).toThrow();
+    expect(() => assertVideoFiles([file("f", "image/png", "portada.png")], "campo")).toThrow();
   });
 });
 

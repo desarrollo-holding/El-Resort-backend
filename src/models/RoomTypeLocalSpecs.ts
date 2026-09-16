@@ -26,7 +26,10 @@ export type RoomTypeLocalSpecsType = Document & {
   portada?: RoomTypeImageField | null;
   portadaMenu?: RoomTypeImageField | null;
   posicion_fotos_portadas?: Record<string, unknown> | null;
+  /** Vídeo de escritorio. Campo histórico: los documentos previos al corte por breakpoint lo usaban para ambos. */
   video_url: string[];
+  /** Vídeo vertical para móvil; vacío = el detalle público cae al de escritorio. */
+  video_url_mobile: string[];
   portada_video?: string | null;
   extraGalleryImages: RoomTypeImageField[];
   pricing?: {
@@ -76,6 +79,11 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       default: [],
     },
     video_url: {
+      type: [String],
+      required: true,
+      default: [],
+    },
+    video_url_mobile: {
       type: [String],
       required: true,
       default: [],

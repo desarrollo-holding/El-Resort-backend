@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { TaxesService } from "../services/taxes.service";
 import { asOptionalBoolean, asOptionalString, formatCloudbedsError } from "../utils/http";
 
+import { sendErrorResponse } from "../utils/errors";
 /**
  * @openapi
  * /api/taxes:
@@ -55,7 +56,7 @@ export class TaxesController {
         return;
       }
 
-      res.status(500).json({ error: "Error interno del servidor" });
+      sendErrorResponse(res, error, "Error al obtener los impuestos y cargos");
     }
   };
 }
