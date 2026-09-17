@@ -21,3 +21,9 @@ build/
 # Ignore OS generated files
 .DS_Store
 Thumbs.db
+
+# Volcados completos de colecciones que deja `npm run media:respaldo` antes de un --apply.
+# Se quedan en la maquina: son la red de seguridad de QUIEN corre el script, no codigo, y son
+# cientos de KB de datos de produccion. Los reportes `media-backfill-*.json` SI se versionan:
+# son la lista de rutas y valores previos que usa `--rollback`, y el equipo los necesita.
+respaldos/pre-backfill-*/

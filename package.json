@@ -9,7 +9,10 @@
     "start": "node ./dist/index.js",
     "test": "vitest run",
     "media:inventory": "ts-node src/scripts/mediaInventory.ts",
-    "media:backfill": "ts-node src/scripts/mediaBackfill.ts"
+    "media:backfill": "ts-node src/scripts/mediaBackfill.ts",
+    "media:variantes": "ts-node src/scripts/registrarVariantesExistentes.ts",
+    "media:respaldo": "ts-node src/scripts/respaldoColecciones.ts",
+    "media:sync": "ts-node src/scripts/syncMediaToDb.ts"
   },
   "keywords": [],
   "author": "Julio Tornero",
