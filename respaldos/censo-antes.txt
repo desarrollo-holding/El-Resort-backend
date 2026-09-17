@@ -1,0 +1,36 @@
+
+> backend@1.0.0 media:inventory
+> ts-node src/scripts/mediaInventory.ts
+
+
+Bucket: marketing_gallery
+
+── Por colección y ruta ─────────────────────────────────────────────────────────
+colección            ruta                               modo       pend  migr  vid   ext
+areas                imagenes.#                         asset         5     4    0    19
+roomtypelocalspecs   extraGalleryImages.#               asset         4   154    0    44
+roomtypelocalspecs   bedrooms.#.photos.#                asset         2    26    0     6
+landingmedias        json.#                             asset         1     0    0     0
+landingmedias        json.decoratives.bottomLeaf        asset         1     1    0     1
+condominios          mapUrl                             url-only      0     0    0     0
+extras               imagenes.#                         asset         0     2    0     1
+landingmedias        json.carouselImages.#              asset         0    29    0    25
+landingmedias        json.decoratives.topFlower         asset         0     1    0     2
+landingmedias        json.heroMobileImage               asset         0     1    0     0
+landingmedias        json.mapImage                      asset         0     1    0     0
+landingmedias        json.reviews.#.avatarUrl           asset         0     0    0     0
+roomtypelocalspecs   portada                            asset         0     3    0    13
+roomtypelocalspecs   portada_video                      url-only      0     0    0     0
+roomtypelocalspecs   portadaMenu                        asset         0    11    0     5
+
+── Totales ──────────────────────────────────────────────────────────────────────
+  migrada      233
+  externa      153
+  sin-marca    18
+  video        15
+  pendiente    13
+
+  13 referencias pendientes en 13 archivos distintos (la misma imagen puede estar referenciada en más de un sitio).
+  Por modo de escritura: asset=13
+
+  (agregá --sizes para medir el peso actual con un HEAD por archivo)

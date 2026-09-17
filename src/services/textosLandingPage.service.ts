@@ -214,4 +214,50 @@ export const TextosLandingPageService = {
 
     return response;
   },
+
+  /**
+   * Secciones que SÍ tienen texto en español pero todavía no tienen registro en `idioma`.
+   *
+   * Existe para el respaldo de lectura del controlador: `getAllSectionsByIdioma("en")` solo
+   * devuelve lo que ya está guardado en inglés, así que una sección creada antes de que existiera
+   * la sincronización automática -o cuya traducción falló al guardar- desaparecía de la respuesta
+   * sin dejar rastro.
+   *
+   * Las dos primeras consultas piden solo `section` (sin el JSON, que es el campo pesado) para que
+   * el caso normal -no falta ninguna- cueste dos lecturas mínimas y nada más.
+   */
+  async getSectionsMissingForIdioma(
+    idioma: string
+  ): Promise<Array<{ sectionId: string; sectionName: string; json: unknown }>> {
+    const normalizedIdioma = idioma.trim().toLowerCase();
+    if (normalizedIdioma !== "en") return [];
+
+    const [target, source] = await Promise.all([
+      TextosLandingPage.find({ idioma: normalizedIdioma }, { section: 1 }).lean(),
+      TextosLandingPage.find({ idioma: "es" }, { section: 1 }).lean(),
+    ]);
+
+    const covered = new Set(target.map((doc) => String(doc.section)));
+    const missingIds = source.map((doc) => String(doc.section)).filter((id) => !covered.has(id));
+    if (missingIds.length === 0) return [];
+
+    const docs = await TextosLandingPage.find({ idioma: "es", section: { $in: missingIds } })
+      .populate("section", "name")
+      .lean();
+
+    return docs.map((doc) => {
+      const populated =
+        doc.section && typeof doc.section === "object"
+          ? (doc.section as unknown as { _id?: unknown; name?: unknown })
+          : null;
+      const sectionId = populated?._id !== undefined ? String(populated._id) : String(doc.section);
+      return {
+        sectionId,
+        // Sin `name` poblado se usa el id: es la misma clave con la que `getAllSectionsByIdioma`
+        // arma su respuesta, así que ambas rutas siguen coincidiendo.
+        sectionName: typeof populated?.name === "string" ? populated.name : sectionId,
+        json: doc.json,
+      };
+    });
+  },
 };

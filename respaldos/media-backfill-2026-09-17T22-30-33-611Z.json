@@ -1,0 +1,80 @@
+{
+  "startedAt": "2026-09-17T22:30:33.611Z",
+  "dryRun": false,
+  "total": 5,
+  "migradas": 5,
+  "omitidas": 0,
+  "fallidas": 0,
+  "bytesBefore": 1515725,
+  "bytesOrig": 449676,
+  "bytesSmallest": 150574,
+  "bytesStored": 1075798,
+  "records": [
+    {
+      "collection": "areas",
+      "docId": "6a9898689af7cfa31cff7bbf",
+      "path": "imagenes.0",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": "https://storage.googleapis.com/marketing_gallery/fotosresort/1788385384724_cine.jpeg",
+      "bytesBefore": 83222,
+      "storagePrefix": "fotosresort/1789684234912-b82cd871-4a1d-4cc0-bb70-071efe78dc6f",
+      "bytesOrig": 54692,
+      "bytesSmallest": 14514,
+      "bytesStored": 140734
+    },
+    {
+      "collection": "areas",
+      "docId": "6a9898a89af7cfa31cff7bc6",
+      "path": "imagenes.0",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": "https://storage.googleapis.com/marketing_gallery/fotosresort/1788385447911_Taller-de-cocteleria-1.png",
+      "bytesBefore": 234472,
+      "storagePrefix": "fotosresort/1789684237131-28968d07-f1f8-4c8b-80e5-5051db1e2613",
+      "bytesOrig": 41186,
+      "bytesSmallest": 13232,
+      "bytesStored": 83424
+    },
+    {
+      "collection": "areas",
+      "docId": "6a9898e29af7cfa31cff7bcf",
+      "path": "imagenes.0",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": "https://storage.googleapis.com/marketing_gallery/fotosresort/1788385506262_Torneo_ajedrez_gigante.png",
+      "bytesBefore": 301946,
+      "storagePrefix": "fotosresort/1789684238928-b28c3366-485b-4dbf-946e-9dc1e8c00c40",
+      "bytesOrig": 113012,
+      "bytesSmallest": 50216,
+      "bytesStored": 258622
+    },
+    {
+      "collection": "areas",
+      "docId": "6a9899119af7cfa31cff7bd4",
+      "path": "imagenes.0",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": "https://storage.googleapis.com/marketing_gallery/fotosresort/1788385553115_Yoga.png",
+      "bytesBefore": 192075,
+      "storagePrefix": "fotosresort/1789684240614-66d8cb37-027a-4046-8c56-d5a5520b2770",
+      "bytesOrig": 80206,
+      "bytesSmallest": 28988,
+      "bytesStored": 173856
+    },
+    {
+      "collection": "areas",
+      "docId": "6a98993c9af7cfa31cff7bd8",
+      "path": "imagenes.0",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": "https://storage.googleapis.com/marketing_gallery/fotosresort/1788385596418_ceramica.png",
+      "bytesBefore": 704010,
+      "storagePrefix": "fotosresort/1789684242719-da6e3608-eb1a-4307-8823-87bbe759c2f0",
+      "bytesOrig": 160580,
+      "bytesSmallest": 43624,
+      "bytesStored": 419162
+    }
+  ],
+  "finishedAt": "2026-09-17T22:30:43.998Z"
+}

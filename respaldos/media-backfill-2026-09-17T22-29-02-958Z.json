@@ -1,0 +1,33 @@
+{
+  "startedAt": "2026-09-17T22:29:02.958Z",
+  "dryRun": false,
+  "total": 1,
+  "migradas": 1,
+  "omitidas": 0,
+  "fallidas": 0,
+  "bytesBefore": 2493390,
+  "bytesOrig": 330456,
+  "bytesSmallest": 33552,
+  "bytesStored": 820930,
+  "records": [
+    {
+      "collection": "roomtypelocalspecs",
+      "docId": "69e10f0aeff9291c01ff5240",
+      "path": "bedrooms.0.photos.0",
+      "mode": "asset",
+      "outcome": "migrada",
+      "priorValue": {
+        "url": "https://storage.googleapis.com/marketing_gallery/fotosresort/archivo-d7c195b0-caf5-4916-b87b-666bf58c2a57.jpg",
+        "storageKey": "",
+        "storagePrefix": "",
+        "variants": []
+      },
+      "bytesBefore": 2493390,
+      "storagePrefix": "fotosresort/1789684145648-9b899008-bbea-4618-b16b-7d9c9e7e07ab",
+      "bytesOrig": 330456,
+      "bytesSmallest": 33552,
+      "bytesStored": 820930
+    }
+  ],
+  "finishedAt": "2026-09-17T22:29:07.732Z"
+}

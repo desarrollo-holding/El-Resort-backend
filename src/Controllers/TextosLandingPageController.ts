@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { TextosLandingPageService } from "../services/textosLandingPage.service";
 import { TranslateService } from "../services/translate.service";
+import { TranslationSanitizer } from "../services/translationSanitizer.service";
 
 import { sendErrorResponse } from "../utils/errors";
 const isMongoDuplicateKeyError = (error: unknown): boolean => {
@@ -178,7 +179,14 @@ export class TextosLandingPageController {
       return;
     }
 
-    const translatedJson = await TranslateService.translateJsonObject(sourceEs.json as object);
+    const rawJson = await TranslateService.translateJsonObject(sourceEs.json as object);
+    // Ver `dropDegenerateTranslations`: una clave que vuelve como `"_"` o vacía se descarta, para
+    // que el front caiga a su copia de respaldo en inglés en vez de quedarse con basura guardada.
+    const translatedJson = TranslationSanitizer.dropDegenerateTranslations(sourceEs.json, rawJson);
+    if (translatedJson === undefined) {
+      res.status(502).json({ error: "El traductor no devolvió un texto usable para esta sección" });
+      return;
+    }
     const created = await TextosLandingPageService.create("en", sectionId, translatedJson);
     res.status(201).json({ success: true, data: created });
   };
@@ -242,9 +250,70 @@ export class TextosLandingPageController {
 
       const idioma = typeof req.query.idioma === "string" ? req.query.idioma.trim() : "";
       const data = await TextosLandingPageService.getAllSectionsByIdioma(idioma);
+      if (idioma.toLowerCase() === "en") {
+        await TextosLandingPageController.fillMissingEnglishSections(data);
+      }
       res.json(data);
     } catch (error) {
       sendErrorResponse(res, error, "Error al obtener los textos del landing");
+    }
+  };
+
+  /**
+   * Respaldo de lectura para las secciones que existen en español pero no en inglés.
+   *
+   * Hasta acá, esas secciones simplemente no salían en la respuesta de `?idioma=en`. El front no
+   * se rompe -cae a su copia de respaldo `src/assets/i18n/en.json`-, pero esa copia es una foto
+   * congelada del texto por defecto: lo que el admin escribe en el dashboard NO se ve nunca en
+   * inglés, y encima el síntoma es silencioso (no hay error, solo texto viejo). Le pasaba a
+   * `roomDetailsDiscoverSection` y a `reviewsSection`, creadas antes de que el PATCH sincronizara
+   * el inglés solo.
+   *
+   * Se traduce con el mismo `TranslateService` que usa el guardado (Gemini con LibreTranslate de
+   * respaldo) y se PERSISTE: el costo es único por sección, porque a partir de ahí ya existe el
+   * registro `en` y esta función no vuelve a encontrarla.
+   *
+   * Si ningún motor pudo traducir, `translateJsonObject` devuelve el MISMO objeto que recibió. En
+   * ese caso la sección se omite a propósito, igual que antes: mandar el español pisaría la copia
+   * de respaldo en inglés del front, que se ve mejor que el texto sin traducir.
+   */
+  private static fillMissingEnglishSections = async (
+    response: Record<string, unknown>
+  ): Promise<void> => {
+    let missing: Array<{ sectionId: string; sectionName: string; json: unknown }> = [];
+    try {
+      missing = await TextosLandingPageService.getSectionsMissingForIdioma("en");
+    } catch (error) {
+      console.error("[TextosLandingPage] No se pudieron buscar las secciones sin inglés:", error);
+      return;
+    }
+
+    for (const section of missing) {
+      const source = section.json;
+      if (!source || typeof source !== "object" || Array.isArray(source)) continue;
+
+      try {
+        const raw = await TranslateService.translateJsonObject(source as object);
+        // Se descartan las claves que volvieron inservibles (p. ej. «DESCUBRE EL RESORT» → `"_"`):
+        // persistirlas sería peor que no traducir, porque a partir de ahí ganan sobre la copia de
+        // respaldo del front, que para esas claves sí tiene el texto correcto.
+        const translated = TranslationSanitizer.dropDegenerateTranslations(source, raw);
+        if (raw === source || translated === undefined) {
+          console.warn(
+            `[TextosLandingPage] Ningún motor tradujo "${section.sectionName}": se omite y el front usa su copia de respaldo.`
+          );
+          continue;
+        }
+
+        response[section.sectionName] = translated;
+        await TextosLandingPageService.upsertBySectionAndIdioma(section.sectionId, "en", translated);
+      } catch (error) {
+        // Nunca tumbar la respuesta entera por una sección: el resto del landing sí se pudo servir.
+        console.error(
+          `[TextosLandingPage] Falló el respaldo de traducción de "${section.sectionName}":`,
+          error
+        );
+      }
     }
   };
 
@@ -325,7 +394,12 @@ export class TextosLandingPageController {
       let enSyncWarning: string | undefined;
       if (updated.idioma === "es" && updated.json && typeof updated.json === "object" && !Array.isArray(updated.json)) {
         try {
-          const translatedEnJson = await TranslateService.translateJsonObject(updated.json as object);
+          const rawEnJson = await TranslateService.translateJsonObject(updated.json as object);
+          // Mismo criterio que en el respaldo de lectura: lo que vuelve inservible no se guarda.
+          const translatedEnJson = TranslationSanitizer.dropDegenerateTranslations(updated.json, rawEnJson);
+          if (translatedEnJson === undefined) {
+            throw new Error("el traductor no devolvió un texto usable");
+          }
           await TextosLandingPageService.upsertBySectionAndIdioma(updated.section, "en", translatedEnJson);
         } catch (geminiError) {
           const message = geminiError instanceof Error ? geminiError.message : String(geminiError);

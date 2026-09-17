@@ -25,6 +25,13 @@ export type RoomTypeLocalSpecsType = Document & {
   bedrooms: RoomTypeBedroomSpec[];
   portada?: RoomTypeImageField | null;
   portadaMenu?: RoomTypeImageField | null;
+  /**
+   * Mapa de ubicación propio de la propiedad («Ubícate en Mundo Yanashpa»). Antes el mapa salía
+   * SIEMPRE de la zona (`condominioID`), así que todas las propiedades de una misma zona compartían
+   * la misma imagen y no se podía marcar dónde está cada casa. Si está vacío se sigue cayendo al
+   * mapa de la zona, para que las propiedades ya cargadas no se queden sin mapa.
+   */
+  mapaUbicacion?: RoomTypeImageField | null;
   posicion_fotos_portadas?: Record<string, unknown> | null;
   /** Vídeo de escritorio. Campo histórico: los documentos previos al corte por breakpoint lo usaban para ambos. */
   video_url: string[];
@@ -94,6 +101,11 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       default: null,
     },
     portadaMenu: {
+      type: Schema.Types.Mixed,
+      required: false,
+      default: null,
+    },
+    mapaUbicacion: {
       type: Schema.Types.Mixed,
       required: false,
       default: null,

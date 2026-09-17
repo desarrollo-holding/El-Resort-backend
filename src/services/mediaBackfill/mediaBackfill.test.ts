@@ -10,6 +10,8 @@ const bucketUrl = (object: string) => `https://storage.googleapis.com/${BUCKET}/
 const ORIGINAL_ENV = { ...process.env };
 beforeEach(() => {
   process.env.GCS_BUCKET_RESORT = BUCKET;
+  // Ver el comentario equivalente en csStorage.service.test.ts.
+  process.env.GCS_BUCKET_RESORT_OVERRIDE = "1";
   process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS = JSON.stringify({ project_id: "x" });
 });
 afterEach(() => {

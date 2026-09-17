@@ -220,7 +220,12 @@ export const getByRoomTypeID = async (req: Request, res: Response): Promise<void
     }
 
     const condominioID = doc.condominioID ? String(doc.condominioID) : null;
-    const mapUrl = condominioID ? await CondominiosService.getMapUrlById(condominioID) : null;
+    // El mapa propio de la propiedad manda. El de la zona queda solo como respaldo para las
+    // propiedades cargadas antes de que existiera `mapaUbicacion`: así ninguna se queda sin mapa
+    // mientras se van subiendo los nuevos, uno por propiedad.
+    const mapaUbicacion = normalizeImageAsset((doc as any).mapaUbicacion);
+    const mapUrl =
+      mapaUbicacion?.url ?? (condominioID ? await CondominiosService.getMapUrlById(condominioID) : null);
 
     // Beneficios del catálogo local (icono + texto) ya resueltos y ordenados.
     const beneficiosResueltos = await BeneficiosService.resolveForRoomType(doc.beneficios);
@@ -239,6 +244,7 @@ export const getByRoomTypeID = async (req: Request, res: Response): Promise<void
       portada: normalizeImageAsset((doc as any).portada),
       portadaMenu: normalizeImageAsset((doc as any).portadaMenu),
       extraGalleryImages: normalizeImageAssetArray((doc as any).extraGalleryImages),
+      mapaUbicacion,
       bedrooms: Array.isArray(doc.bedrooms)
         ? doc.bedrooms.map((bedroom) => ({
             ...bedroom,
@@ -331,6 +337,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
     }
     const existingPortada = normalizeImageAsset((existingDoc as any).portada);
     const existingPortadaMenu = normalizeImageAsset((existingDoc as any).portadaMenu);
+    const existingMapaUbicacion = normalizeImageAsset((existingDoc as any).mapaUbicacion);
     const existingBedroomsRaw = Array.isArray((existingDoc as any).bedrooms)
       ? ((existingDoc as any).bedrooms as Array<{ number: number; photos?: unknown[] }>)
       : [];
@@ -347,13 +354,14 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
     const portadaVideoRaw = payload.portada_video;
     const portadaRaw = payload.portada;
     const portadaMenuRaw = payload.portadaMenu;
+    const mapaUbicacionRaw = payload.mapaUbicacion;
     const pricing = normalizePricing(payload.pricing, "pricing");
     const beneficios = normalizeBeneficios(payload.beneficios, "beneficios");
     const roomTypeNamePayload = normalizeTranslatableText(payload.roomTypeName, "roomTypeName");
     const roomTypeDescriptionPayload = normalizeTranslatableText(payload.roomTypeDescription, "roomTypeDescription");
     const maxGuestsPayload = payload.maxGuests;
     const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
-    const { bedroomFilesByKey, videoFiles, videoMobileFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles } = normalizeFileMap(files);
+    const { bedroomFilesByKey, videoFiles, videoMobileFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles, mapaUbicacionImageFiles } = normalizeFileMap(files);
 
     assertVideoFiles(videoFiles, "videoFiles");
     assertVideoFiles(videoMobileFiles, "videoMobileFiles");
@@ -361,6 +369,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
     assertImageFiles(portadaVideoImageFiles, "portadaVideoImageFiles");
     assertImageFiles(portadaImageFiles, "portadaImageFiles");
     assertImageFiles(portadaMenuImageFiles, "portadaMenuImageFiles");
+    assertImageFiles(mapaUbicacionImageFiles, "mapaUbicacionImageFiles");
 
     if (
       bedrooms.length === 0 &&
@@ -380,8 +389,10 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       extraGalleryImageFiles.length === 0 &&
       portadaImageFiles.length === 0 &&
       portadaMenuImageFiles.length === 0 &&
+      mapaUbicacionImageFiles.length === 0 &&
       portadaRaw === undefined &&
       portadaMenuRaw === undefined &&
+      mapaUbicacionRaw === undefined &&
       portadaVideoImageFiles.length === 0 &&
       portadaVideoRaw === undefined
     ) {
@@ -425,6 +436,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       portada_video?: string | null;
       portada?: ImageAssetType | null;
       portadaMenu?: ImageAssetType | null;
+      mapaUbicacion?: ImageAssetType | null;
       pricing: {
         totalRate?: number;
         ofertaDelMesRoomRate?: number;
@@ -538,6 +550,22 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       update.portadaMenu = await uploadImageAssetFile(portadaMenuImageFiles[0], tracker);
     }
 
+    // mapaUbicacion (mapa propio de la propiedad; tiene prioridad sobre el de la zona)
+    if (mapaUbicacionImageFiles.length > 0) {
+      update.mapaUbicacion = await uploadImageAssetFile(mapaUbicacionImageFiles[0], tracker);
+    }
+
+    if (mapaUbicacionImageFiles.length === 0 && mapaUbicacionRaw !== undefined) {
+      if (mapaUbicacionRaw === null) {
+        update.mapaUbicacion = null;
+      } else if (typeof mapaUbicacionRaw === "string") {
+        const trimmed = mapaUbicacionRaw.trim();
+        update.mapaUbicacion = trimmed.length > 0 ? resolveKeptSingleImageAsset(existingMapaUbicacion, trimmed) : null;
+      } else {
+        throw toHttpError(400, "mapaUbicacion debe ser una cadena o null");
+      }
+    }
+
     if (portadaMenuImageFiles.length === 0 && portadaMenuRaw !== undefined) {
       if (portadaMenuRaw === null) {
         update.portadaMenu = null;
@@ -622,6 +650,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       beneficiosResueltos: [],
       portada: normalizeImageAsset((doc as any).portada),
       portadaMenu: normalizeImageAsset((doc as any).portadaMenu),
+      mapaUbicacion: normalizeImageAsset((doc as any).mapaUbicacion),
       extraGalleryImages: normalizeImageAssetArray((doc as any).extraGalleryImages),
       bedrooms: Array.isArray(doc.bedrooms)
         ? doc.bedrooms.map((bedroom) => ({

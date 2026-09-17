@@ -48,7 +48,11 @@ vi.mock("@google-cloud/storage", () => {
   return { Storage: FakeStorage };
 });
 
+// `getGcsConfigFromEnv` rechaza cualquier bucket que no sea el de producción salvo que se
+// declare el override: sin esto el test solo pasaba cuando OTRO archivo del suite había
+// cargado antes el `.env` real (con el bucket bueno), o sea por orden de ejecución.
 process.env.GCS_BUCKET_RESORT = "test-bucket";
+process.env.GCS_BUCKET_RESORT_OVERRIDE = "1";
 process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS = JSON.stringify({ client_email: "x", private_key: "y" });
 
 async function makeJpeg(width = 3000, height = 2000) {

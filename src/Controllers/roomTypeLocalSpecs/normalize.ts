@@ -19,6 +19,7 @@ export type BedroomInput = {
 export type UpdatePayload = {
   portada?: string | null;
   portadaMenu?: string | null;
+  mapaUbicacion?: string | null;
   bathroomsCount?: number;
   titleColor?: string | null;
   condominioID?: string;
@@ -66,6 +67,7 @@ export type NormalizedFiles = {
   portadaVideoImageFiles: Express.Multer.File[];
   portadaImageFiles: Express.Multer.File[];
   portadaMenuImageFiles: Express.Multer.File[];
+  mapaUbicacionImageFiles: Express.Multer.File[];
 };
 
 export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles => {
@@ -76,6 +78,7 @@ export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles 
   const portadaVideoImageFiles: Express.Multer.File[] = [];
   const portadaImageFiles: Express.Multer.File[] = [];
   const portadaMenuImageFiles: Express.Multer.File[] = [];
+  const mapaUbicacionImageFiles: Express.Multer.File[] = [];
   const fieldRegex = /^bedroomFiles\[(.+)\]$/;
 
   for (const file of files) {
@@ -109,6 +112,11 @@ export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles 
       continue;
     }
 
+    if (file.fieldname === "mapaUbicacionImageFiles") {
+      mapaUbicacionImageFiles.push(file);
+      continue;
+    }
+
     const match = fieldRegex.exec(file.fieldname);
     if (!match) {
       throw toHttpError(
@@ -127,7 +135,7 @@ export const normalizeFileMap = (files: Express.Multer.File[]): NormalizedFiles 
     bedroomFilesByKey.set(key, bucket);
   }
 
-  return { bedroomFilesByKey, videoFiles, videoMobileFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles };
+  return { bedroomFilesByKey, videoFiles, videoMobileFiles, extraGalleryImageFiles, portadaVideoImageFiles, portadaImageFiles, portadaMenuImageFiles, mapaUbicacionImageFiles };
 };
 
 export const normalizeBedrooms = (value: unknown): BedroomInput[] => {
