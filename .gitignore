@@ -28,3 +28,4 @@ Thumbs.db
 # son la lista de rutas y valores previos que usa `--rollback`, y el equipo los necesita.
 respaldos/pre-backfill-*/
 respaldos/pre-rewrite-*/
+respaldos/pre-sync-*/

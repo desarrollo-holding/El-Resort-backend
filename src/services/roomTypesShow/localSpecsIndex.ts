@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import RoomTypeLocalSpecs from "../../models/RoomTypeLocalSpecs";
 import { BeneficiosService } from "../beneficios.service";
-import { RoomsService } from "../rooms.service";
 import type { LocalSpecsNormalized, LocalPricingNormalized } from "./types";
 import { normalizeImageAsset, normalizeImageAssetArray } from "../../models/shared/imageAsset";
 
@@ -172,37 +171,3 @@ export const fetchRoomTypeLocalPricingIndex = async (roomTypeIDs: string[]): Pro
   return index;
 };
 
-export const enrichPricingIndexWithCloudBeds = async (
-  roomTypeIDs: string[],
-  pricingIndex: Map<string, LocalPricingNormalized>
-): Promise<Map<string, LocalPricingNormalized>> => {
-  const needsEnrichment = roomTypeIDs.filter((id) => {
-    const p = pricingIndex.get(id);
-    if (!p) return true;
-    // Necesita enriquecimiento si totalRate es 0 o undefined
-    return !p.totalRate || p.totalRate === 0;
-  });
-  if (needsEnrichment.length === 0) return pricingIndex;
-
-  try {
-    const cbRates = await RoomsService.getCloudBedsRatesMap();
-    for (const id of needsEnrichment) {
-      const cb = cbRates.get(id);
-      if (!cb) continue;
-      const existing = pricingIndex.get(id) ?? {};
-      if ((existing.totalRate === undefined || existing.totalRate === 0) && cb.totalRate !== undefined) {
-        existing.totalRate = cb.totalRate;
-      }
-      if ((existing.ofertaDelMesRoomRate === undefined || existing.ofertaDelMesRoomRate === 0) && cb.ofertaRate !== undefined) {
-        existing.ofertaDelMesRoomRate = cb.ofertaRate;
-      }
-      if (existing.totalRate !== undefined || existing.ofertaDelMesRoomRate !== undefined) {
-        pricingIndex.set(id, existing);
-      }
-    }
-  } catch {
-    // CloudBeds no disponible, continuar con pricing local
-  }
-
-  return pricingIndex;
-};
