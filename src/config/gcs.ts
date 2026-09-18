@@ -13,8 +13,16 @@
  * solo puede confirmarlo.
  */
 
-/** Único bucket donde este servicio ESCRIBE. Cambiarlo es una migración, no un ajuste. */
-export const BUCKET_DESTINO = "marketing_gallery";
+/**
+ * Único bucket donde este servicio ESCRIBE. Cambiarlo es una migración, no un ajuste.
+ *
+ * 2026-09-18: pasa de `marketing_gallery` a `elresort-web-media`, y esta vez la migración sí se
+ * hizo: 1091 objetos consolidados (908 copiados y 183 rescatados del soft-delete) y las 1371 URLs
+ * de Mongo reapuntadas. `marketing_gallery` nunca fue del sitio — es el bucket del PMS, con
+ * comprobantes, firmas y contratos — y `greendreams_bucket` era el histórico. Los dos quedan
+ * como legacy de solo lectura.
+ */
+export const BUCKET_DESTINO = "elresort-web-media";
 
 /**
  * Buckets que solo se LEEN: contienen medios de antes de la unificación. Se configura con
