@@ -32,27 +32,3 @@ export const asOptionalBoolean = (value: unknown): boolean | undefined => {
 
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-export type CloudbedsHttpErrorLike = {
-  status?: number;
-  message: string;
-  request?: unknown;
-  responseBody?: unknown;
-};
-
-export type CloudbedsErrorPayload = {
-  provider: "cloudbeds";
-  status?: number;
-  message: string;
-  request?: unknown;
-  data?: unknown;
-};
-
-export const formatCloudbedsError = (error: CloudbedsHttpErrorLike): CloudbedsErrorPayload => {
-  return {
-    provider: "cloudbeds",
-    status: error.status,
-    message: error.message,
-    request: error.request,
-    data: error.responseBody,
-  };
-};

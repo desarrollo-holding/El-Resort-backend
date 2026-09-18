@@ -25,7 +25,6 @@ import {
   buildRoomTypeIdCandidate,
 } from "./normalize";
 import { uploadImageFile, uploadImageAssetFile, uploadVideoFile, rollbackUploads, type UploadTracker } from "./mediaUpload";
-import { fetchCloudbedsRoomTypesMapSafe, fetchCloudbedsRatesMapSafe } from "./cloudbedsEnrichment";
 import {
   resolveKeptImageAssets,
   resolveKeptSingleImageAsset,
@@ -230,7 +229,6 @@ export const getByRoomTypeID = async (req: Request, res: Response): Promise<void
     // Beneficios del catálogo local (icono + texto) ya resueltos y ordenados.
     const beneficiosResueltos = await BeneficiosService.resolveForRoomType(doc.beneficios);
 
-    // Enriquecer con datos de CloudBeds
     const enriched: Record<string, unknown> = {
       ...doc,
       condominioID,
@@ -253,50 +251,8 @@ export const getByRoomTypeID = async (req: Request, res: Response): Promise<void
         : [],
     };
 
-    const cbMap = await fetchCloudbedsRoomTypesMapSafe();
-    const cb = cbMap.get(roomTypeID) as Record<string, unknown> | undefined;
-    if (cb) {
-      // Local manda si tiene contenido; Cloudbeds solo se usa de respaldo, y se sintetiza
-      // en la misma forma {es, en} para que la respuesta sea siempre uniforme.
-      const localName = enriched.roomTypeName as { es?: string; en?: string | null } | undefined;
-      enriched.roomTypeName =
-        localName?.es && localName.es.trim().length > 0
-          ? localName
-          : { es: typeof cb.roomTypeName === "string" ? cb.roomTypeName : "", en: null };
 
-      const localDescription = enriched.roomTypeDescription as { es?: string; en?: string | null } | undefined;
-      enriched.roomTypeDescription =
-        localDescription?.es && localDescription.es.trim().length > 0
-          ? localDescription
-          : { es: typeof cb.roomTypeDescription === "string" ? cb.roomTypeDescription : "", en: null };
-
-      enriched.roomTypePhotos = Array.isArray(cb.roomTypePhotos) ? cb.roomTypePhotos : enriched.roomTypePhotos;
-      // Local manda si tiene un valor seteado; Cloudbeds solo se usa de respaldo.
-      const localMaxGuests = typeof enriched.maxGuests === "number" ? enriched.maxGuests : undefined;
-      enriched.maxGuests = localMaxGuests ?? (typeof cb.maxGuests === "number" ? cb.maxGuests : undefined);
-      enriched.roomTypeFeatures = Array.isArray(cb.roomTypeFeatures) ? cb.roomTypeFeatures : enriched.roomTypeFeatures;
-    }
-
-    // Enriquecer pricing con CloudBeds si el local tiene totalRate 0
-    const localPricing = enriched.pricing as Record<string, unknown> | undefined;
-    const localTotalRate = localPricing && typeof localPricing.totalRate === "number" ? localPricing.totalRate : undefined;
-    if (!localTotalRate || localTotalRate === 0) {
-      const cbRates = await fetchCloudbedsRatesMapSafe();
-      const cbRate = cbRates.get(roomTypeID);
-      if (cbRate) {
-        const resolvedPricing = { ...(enriched.pricing as Record<string, unknown> || {}) };
-        if ((!resolvedPricing.totalRate || resolvedPricing.totalRate === 0) && cbRate.totalRate !== undefined) {
-          resolvedPricing.totalRate = cbRate.totalRate;
-        }
-        if ((!resolvedPricing.ofertaDelMesRoomRate || resolvedPricing.ofertaDelMesRoomRate === 0) && cbRate.ofertaRate !== undefined) {
-          resolvedPricing.ofertaDelMesRoomRate = cbRate.ofertaRate;
-        }
-        enriched.pricing = resolvedPricing;
-        enriched.pricingSource = "cloudbeds";
-      }
-    } else {
-      enriched.pricingSource = "local";
-    }
+    enriched.pricingSource = "local";
 
     const payload = { success: true, data: enriched };
     if (idioma === "en") {
@@ -412,7 +368,7 @@ export const updateByRoomTypeID = async (req: Request, res: Response): Promise<v
       maxGuestsPayload !== null &&
       (!Number.isInteger(maxGuestsPayload) || maxGuestsPayload < 1)
     ) {
-      res.status(400).json({ error: "maxGuests debe ser un entero >= 1, o null para volver a Cloudbeds" });
+      res.status(400).json({ error: "maxGuests debe ser un entero >= 1, o null para dejarlo sin definir" });
       return;
     }
 

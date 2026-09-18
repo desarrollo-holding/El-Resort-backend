@@ -3,7 +3,6 @@ import RoomTypeLocalSpecs from "../../models/RoomTypeLocalSpecs";
 import mongoose from "mongoose";
 import type { AnyBulkWriteOperation } from "mongoose";
 import { isMongoDuplicateKeyError, slugifyRoomTypeName, buildRoomTypeIdCandidate } from "./normalize";
-import { fetchCloudbedsRoomTypesMapSafe, fetchCloudbedsRatesMapSafe } from "./cloudbedsEnrichment";
 import { RoomTypeLocalTextService } from "../../services/roomTypeLocalText.service";
 
 import { sendErrorResponse } from "../../utils/errors";
@@ -85,57 +84,37 @@ export const getAllAdmin = async (req: Request, res: Response): Promise<void> =>
       .sort({ orden: 1, createdAt: 1 })
       .lean();
 
-    // Enriquecer con datos de CloudBeds (nombre, fotos, descripción, precios)
-    const cloudbedsMap = await fetchCloudbedsRoomTypesMapSafe();
-    const cloudbedsRatesMap = await fetchCloudbedsRatesMapSafe();
-
     const enriched = docs.map((doc) => {
-      const cb = cloudbedsMap.get(doc.roomTypeID);
-      const cbRates = cloudbedsRatesMap.get(doc.roomTypeID);
       const localPricing = doc.pricing as Record<string, unknown> | undefined;
       const localTotalRate = localPricing && typeof localPricing.totalRate === "number" ? localPricing.totalRate : undefined;
 
-      // Precio: local si existe y > 0, si no CloudBeds baseRate
-      const resolvedTotalRate = (localTotalRate != null && localTotalRate > 0)
-        ? localTotalRate
-        : cbRates?.totalRate;
+      // El precio sale solo de la propiedad. Antes, si el local era 0, caia a la tarifa de
+      // Cloudbeds; hoy un 0 es un 0 y se ve como tal en el panel, que es lo correcto: significa
+      // que falta cargarlo.
+      const resolvedTotalRate = (localTotalRate != null && localTotalRate > 0) ? localTotalRate : undefined;
       const localOferta = localPricing && typeof localPricing.ofertaDelMesRoomRate === "number" ? localPricing.ofertaDelMesRoomRate : undefined;
-      const resolvedOferta = (localOferta != null && localOferta > 0)
-        ? localOferta
-        : cbRates?.ofertaRate;
+      const resolvedOferta = (localOferta != null && localOferta > 0) ? localOferta : undefined;
 
       const base: Record<string, unknown> = { ...doc };
       base.pricing = {
         totalRate: resolvedTotalRate ?? 0,
         ofertaDelMesRoomRate: resolvedOferta ?? 0,
       };
-      base.pricingSource = (localTotalRate != null && localTotalRate > 0) ? "local" : "cloudbeds";
+      base.pricingSource = "local";
 
-      // Local manda si tiene contenido; Cloudbeds solo se usa de respaldo. A diferencia de
+      // A diferencia de
       // getByRoomTypeID (editor, necesita {es, en}), este listado es de solo lectura para la
       // tarjeta del dashboard — se aplana a string, el mismo contrato que ya tenía.
       const localName = base.roomTypeName as { es?: string; en?: string | null } | undefined;
-      base.roomTypeName =
-        localName?.es && localName.es.trim().length > 0
-          ? localName.es
-          : typeof cb?.roomTypeName === "string"
-            ? cb.roomTypeName
-            : undefined;
+      base.roomTypeName = localName?.es && localName.es.trim().length > 0 ? localName.es : undefined;
 
       const localDescription = base.roomTypeDescription as { es?: string; en?: string | null } | undefined;
       base.roomTypeDescription =
-        localDescription?.es && localDescription.es.trim().length > 0
-          ? localDescription.es
-          : typeof cb?.roomTypeDescription === "string"
-            ? cb.roomTypeDescription
-            : undefined;
+        localDescription?.es && localDescription.es.trim().length > 0 ? localDescription.es : undefined;
 
-      if (!cb) return base;
-      base.roomTypePhotos = Array.isArray(cb.roomTypePhotos) ? cb.roomTypePhotos : undefined;
-      // Local manda si tiene un valor seteado; Cloudbeds solo se usa de respaldo.
-      const localMaxGuests = typeof base.maxGuests === "number" ? base.maxGuests : undefined;
-      base.maxGuests = localMaxGuests ?? (typeof cb.maxGuests === "number" ? cb.maxGuests : undefined);
-      base.roomTypeFeatures = Array.isArray(cb.roomTypeFeatures) ? cb.roomTypeFeatures : undefined;
+      // `roomTypePhotos` y `roomTypeFeatures` llegaban de Cloudbeds y ya no existen: la tarjeta
+      // del panel usa `portada`, que es local, y los beneficios se editan en su propia sección.
+      base.maxGuests = typeof base.maxGuests === "number" ? base.maxGuests : undefined;
       return base;
     });
 

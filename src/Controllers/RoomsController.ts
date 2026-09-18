@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
-import { RoomsService } from "../services/rooms.service";
 import { RoomTypesShowService } from "../services/roomTypesShow.service";
-import { asOptionalBoolean, asOptionalInt, asOptionalString, formatCloudbedsError } from "../utils/http";
+import { asOptionalBoolean, asOptionalInt, asOptionalString } from "../utils/http";
 import { getDefaultStayDates, isIsoDateYmd } from "../utils/dates";
 import { parseIdiomaQuery } from "../utils/idioma";
 import { RoomTypeTranslationService, type LocalEnByRoomTypeID } from "../services/roomTypeTranslation.service";
@@ -281,11 +280,6 @@ export class RoomsController {
 
       res.json(payload);
     } catch (error) {
-      if (error instanceof RoomsService.CloudbedsHttpError) {
-        res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
-        return;
-      }
-
       sendErrorResponse(res, error, "Error al obtener las habitaciones");
     }
   };
@@ -373,11 +367,6 @@ export class RoomsController {
       // Ver el comentario equivalente en el listado: en español el glosario también hace falta.
       res.json(RoomTypeTranslationService.localizeAmenities(payload, "es"));
     } catch (error) {
-      if (error instanceof RoomsService.CloudbedsHttpError) {
-        res.status(error.status || 502).json({ error: formatCloudbedsError(error) });
-        return;
-      }
-
       sendErrorResponse(res, error, "Error al obtener la habitación");
     }
   };

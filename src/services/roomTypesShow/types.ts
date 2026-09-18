@@ -1,32 +1,6 @@
 import type { BeneficioDTO } from "../beneficios.service";
 import type { ImageAssetType } from "../../models/shared/imageAsset";
 
-export type CloudbedsRoomsResponse = {
-  success?: boolean;
-  data?: Array<{
-    propertyID?: string;
-    rooms?: Array<{
-      roomID?: string;
-      roomName?: string;
-      roomTypeID?: string;
-    }>;
-  }>;
-  count?: number;
-  total?: number;
-};
-
-export type CloudbedsRoomTypesResponse = {
-  success?: boolean;
-  data?: Array<Record<string, unknown>>;
-  count?: number;
-  total?: number;
-};
-
-export type CloudbedsRatePlansResponse = {
-  success?: boolean;
-  data?: Array<Record<string, unknown>>;
-};
-
 export type LocalSpecsNormalized = {
   bathroomsCount: number;
   titleColor?: string | null;
