@@ -51,6 +51,59 @@ describe("resolveKeptImageAssets", () => {
   it("ignora URLs vacías", () => {
     expect(resolveKeptImageAssets([asset("a")], [])).toEqual([]);
   });
+
+  /**
+   * Regresión del incidente del 17/09/2026: 183 fotos borradas.
+   * `MEDIA_PUBLIC_BASE_URL` hacía que la API devolviera la imagen como `https://elresort.pe/cms/<clave>`
+   * mientras el documento la tenía guardada como URL del bucket. El dashboard reenviaba la forma
+   * `/cms`, no coincidía ninguna cadena, y la foto conservada acababa borrada del storage.
+   */
+  it("empareja por clave de objeto aunque la URL llegue con otra forma (proxy /cms, otro bucket)", () => {
+    const existing = [asset("a", { url: "https://storage.googleapis.com/bucket-viejo/fotosresort/a/orig.webp" })];
+
+    for (const entrante of [
+      "https://elresort.pe/cms/fotosresort/a/orig.webp",
+      "/cms/fotosresort/a/orig.webp",
+      "https://storage.googleapis.com/bucket-nuevo/fotosresort/a/orig.webp",
+    ]) {
+      const [resuelto] = resolveKeptImageAssets(existing, [entrante]);
+      expect(resuelto, entrante).toEqual(existing[0]);
+      // Lo que de verdad importa: sigue teniendo storageKey, así que diffRemoved no lo da por
+      // eliminado y cleanupRemovedImageAssets no borra su carpeta de variantes.
+      expect(resuelto.storageKey).toBe("fotosresort/a/orig.webp");
+    }
+  });
+
+  it("no empareja imágenes distintas que comparten sufijo de ruta", () => {
+    const existing = [asset("a")];
+    const [resuelto] = resolveKeptImageAssets(existing, ["https://x/otrofotosresort/a/orig.webp"]);
+    expect(resuelto.storageKey).toBe("");
+  });
+});
+
+describe("regresión: un cambio de formato de URL no debe borrar nada", () => {
+  it("la foto conservada con URL reescrita no se clasifica como eliminada", async () => {
+    const existing = [asset("a"), asset("b")];
+    // El usuario no quitó nada: reenvía las dos, pero a través del proxy /cms.
+    const survivientes = resolveKeptImageAssets(existing, [
+      "https://elresort.pe/cms/fotosresort/a/orig.webp",
+      "https://elresort.pe/cms/fotosresort/b/orig.webp",
+    ]);
+
+    const eliminadas = diffRemovedImageAssets(existing, survivientes);
+    expect(eliminadas).toEqual([]);
+
+    await cleanupRemovedImageAssets(eliminadas);
+    expect(deletedFileIds).toEqual([]);
+  });
+
+  it("quitar una foto de verdad sí borra la suya, y solo la suya", async () => {
+    const existing = [asset("a"), asset("b")];
+    const survivientes = resolveKeptImageAssets(existing, ["https://elresort.pe/cms/fotosresort/a/orig.webp"]);
+
+    await cleanupRemovedImageAssets(diffRemovedImageAssets(existing, survivientes));
+    expect(deletedFileIds).toEqual(["fotosresort/b/orig.webp"]);
+  });
 });
 
 describe("resolveKeptSingleImageAsset", () => {

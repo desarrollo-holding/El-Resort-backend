@@ -27,3 +27,4 @@ Thumbs.db
 # cientos de KB de datos de produccion. Los reportes `media-backfill-*.json` SI se versionan:
 # son la lista de rutas y valores previos que usa `--rollback`, y el equipo los necesita.
 respaldos/pre-backfill-*/
+respaldos/pre-rewrite-*/
