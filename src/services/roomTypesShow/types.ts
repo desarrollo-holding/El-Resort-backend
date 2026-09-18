@@ -35,8 +35,10 @@ export type LocalSpecsNormalized = {
   portadaMenu?: ImageAssetType | null;
   posicion_fotos_portadas?: Record<string, unknown> | null;
   orden?: number;
-  /** Catálogo local ya resuelto (icono + texto). Vacío = la ficha cae a `roomTypeFeatures` de Cloudbeds. */
+  /** Catálogo local ya resuelto (icono + texto). Vacío = la ficha cae a `beneficiosTexto`. */
   beneficios?: BeneficioDTO[];
+  /** Comodidades congeladas (texto). Respaldo de `beneficios` cuando está vacío. */
+  beneficiosTexto?: string[];
   /** Nombre/descripción locales crudos (sin resolver por idioma); `Es` vacío = cae a Cloudbeds. */
   roomTypeNameLocalEs?: string;
   roomTypeNameLocalEn?: string | null;

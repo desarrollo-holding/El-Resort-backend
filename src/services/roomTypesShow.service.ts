@@ -7,7 +7,6 @@ import {
   fetchRoomTypeLocalSpecsIndex,
   fetchRoomTypeLocalNameDescriptionIndex,
   fetchRoomTypeLocalPricingIndex,
-  enrichPricingIndexWithCloudBeds,
 } from "./roomTypesShow/localSpecsIndex";
 import { EXTENDED_STAY_MIN_NIGHTS, getNightsBetween, isExtendedStayRatePlan } from "./roomTypesShow/dateAndFilters";
 
@@ -23,6 +22,34 @@ const buildLinkedRoomTypeQty = (rt: Record<string, unknown> | undefined) =>
         }))
         .filter((v) => v.roomTypeID.length > 0 && v.roomQty > 0)
     : undefined;
+
+/**
+ * Esqueleto de `RoomTypeModel` sin presentación ni inventario, para los endpoints del catálogo
+ * público, que ya no hablan con Cloudbeds.
+ *
+ * Va vacío a propósito. `toReducedModel`/`toReducedDetailModel` resuelven cada campo con
+ * `preferLocalText`/`preferLocalNumber` contra las specs locales, así que lo que antes llegaba de
+ * Cloudbeds y luego se pisaba con el dato local ahora simplemente no llega: el resultado es el
+ * mismo y desaparece la llamada de red. Los campos que Cloudbeds llenaba y este payload nunca
+ * emitió (adultsIncluded, totalUnits, linkedRoom*) se van con ella.
+ *
+ * `roomTypePhotos` queda en `[]`: era el respaldo de foto y hoy las 16 propiedades activas tienen
+ * portada local, así que los consumidores (`portada ?? roomTypePhotos[0]`) ni lo miran.
+ */
+const emptyPresentationModel = (roomTypeID: string): RoomTypeModel => ({
+  roomTypeID,
+  presentation: {
+    roomTypeName: "",
+    roomTypePhotos: [],
+  },
+  inventory: {
+    roomIDs: [],
+    roomNames: [],
+  },
+  pricing: {
+    ratePlans: [],
+  },
+});
 
 export const RoomTypesShowService = {
   /**
@@ -322,8 +349,11 @@ export const RoomTypesShowService = {
   },
 
   /**
-   * Fuente primaria: las propiedades administradas localmente. Cloudbeds es enriquecimiento
-   * oportunista por `roomTypeID` coincidente, nunca un requisito de existencia.
+   * Fuente ÚNICA: las propiedades administradas localmente. Cloudbeds ya no interviene.
+   *
+   * `params.maxGuests` se conserva en la firma porque el controlador sigue enviándolo y
+   * validándolo, pero nunca filtró nada: el catálogo siempre se construyó a partir de todas las
+   * propiedades locales y Cloudbeds solo decidía a cuáles enriquecía.
    */
   async listRoomTypesReducedCatalogWithLocalPricing(params: {
     maxGuests?: number;
@@ -332,43 +362,9 @@ export const RoomTypesShowService = {
     const localRoomTypeIDs = Array.from(specsIndex.keys());
     if (localRoomTypeIDs.length === 0) return [];
 
-    const roomTypes = await fetchRoomTypesDetails({ roomTypeIDs: localRoomTypeIDs, maxGuests: params.maxGuests });
-    const cloudbedsByID = new Map<string, Record<string, unknown>>();
-    for (const rt of roomTypes) {
-      const id = asString(rt.roomTypeID);
-      if (id) cloudbedsByID.set(id, rt);
-    }
-
-    const full: RoomTypeModel[] = localRoomTypeIDs.map((roomTypeID) => {
-      const rt = cloudbedsByID.get(roomTypeID);
-      return {
-        roomTypeID,
-        presentation: {
-          roomTypeName: rt ? asString(rt.roomTypeName) ?? "" : "",
-          roomTypeNameShort: rt ? asString(rt.roomTypeNameShort) : undefined,
-          roomTypeDescription: rt ? asString(rt.roomTypeDescription) : undefined,
-          roomTypePhotos: rt ? asStringArray(rt.roomTypePhotos) ?? [] : [],
-          maxGuests: rt ? asNumber(rt.maxGuests) : undefined,
-          adultsIncluded: rt ? asNumber(rt.adultsIncluded) : undefined,
-          childrenIncluded: rt ? asNumber(rt.childrenIncluded) : undefined,
-          roomTypeFeatures: rt ? normalizeRoomTypeFeatures(rt.roomTypeFeatures) : undefined,
-        },
-        inventory: {
-          roomIDs: [],
-          roomNames: [],
-          totalUnits: rt ? asNumber(rt.roomTypeUnits) : undefined,
-          linkedRoomIDs: rt ? asStringArray(rt.linkedRoomIDs) : undefined,
-          linkedRoomTypeIDs: rt ? asStringArray(rt.linkedRoomTypeIDs) : undefined,
-          linkedRoomTypeQty: buildLinkedRoomTypeQty(rt),
-        },
-        pricing: {
-          ratePlans: [],
-        },
-      };
-    });
+    const full: RoomTypeModel[] = localRoomTypeIDs.map(emptyPresentationModel);
 
     const pricingIndex = await fetchRoomTypeLocalPricingIndex(localRoomTypeIDs);
-    await enrichPricingIndexWithCloudBeds(localRoomTypeIDs, pricingIndex);
 
     // Ordenar por `orden` ascendente; los que no tengan `orden` quedan al final
     full.sort((a, b) => {
@@ -391,36 +387,9 @@ export const RoomTypesShowService = {
     const localSpecs = specsIndex.get(params.roomTypeID);
     if (!localSpecs) return null;
 
-    const details = await fetchRoomTypesDetails({ roomTypeIDs: [params.roomTypeID], maxGuests: params.maxGuests });
-    const rt = details[0];
-
-    const model: RoomTypeModel = {
-      roomTypeID: params.roomTypeID,
-      presentation: {
-        roomTypeName: rt ? asString(rt.roomTypeName) ?? "" : "",
-        roomTypeNameShort: rt ? asString(rt.roomTypeNameShort) : undefined,
-        roomTypeDescription: rt ? asString(rt.roomTypeDescription) : undefined,
-        roomTypePhotos: rt ? asStringArray(rt.roomTypePhotos) ?? [] : [],
-        maxGuests: rt ? asNumber(rt.maxGuests) : undefined,
-        adultsIncluded: rt ? asNumber(rt.adultsIncluded) : undefined,
-        childrenIncluded: rt ? asNumber(rt.childrenIncluded) : undefined,
-        roomTypeFeatures: rt ? normalizeRoomTypeFeatures(rt.roomTypeFeatures) : undefined,
-      },
-      inventory: {
-        roomIDs: [],
-        roomNames: [],
-        totalUnits: rt ? asNumber(rt.roomTypeUnits) : undefined,
-        linkedRoomIDs: rt ? asStringArray(rt.linkedRoomIDs) : undefined,
-        linkedRoomTypeIDs: rt ? asStringArray(rt.linkedRoomTypeIDs) : undefined,
-        linkedRoomTypeQty: buildLinkedRoomTypeQty(rt),
-      },
-      pricing: {
-        ratePlans: [],
-      },
-    };
+    const model = emptyPresentationModel(params.roomTypeID);
 
     const pricingIndex = await fetchRoomTypeLocalPricingIndex([params.roomTypeID]);
-    await enrichPricingIndexWithCloudBeds([params.roomTypeID], pricingIndex);
     return toReducedDetailModel(
       model,
       localSpecs,

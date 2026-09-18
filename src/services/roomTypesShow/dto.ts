@@ -117,14 +117,20 @@ export const toReducedDetailModel = (
   result.portadaMenu = localSpecs && localSpecs.portadaMenu ? localSpecs.portadaMenu : null;
   result.posicion_fotos_portadas = localSpecs && (localSpecs as any).posicion_fotos_portadas ? (localSpecs as any).posicion_fotos_portadas : null;
 
-  // `beneficios` manda cuando la propiedad ya tiene catálogo asignado; si está vacío se
-  // sigue enviando `roomTypeFeatures` de Cloudbeds para que la ficha nunca quede sin beneficios.
+  // `beneficios` manda cuando la propiedad ya tiene catálogo asignado; si está vacío se envía
+  // `roomTypeFeatures` para que la ficha nunca quede sin comodidades.
+  //
+  // Ese respaldo ya NO viene de Cloudbeds: está congelado en `beneficiosTexto` dentro de la propia
+  // propiedad. Se mantiene `model.presentation.roomTypeFeatures` como último recurso solo mientras
+  // dure la transición — cuando se corte la integración ese valor llegará siempre vacío y el
+  // operador `??` se quedará con el local sin que cambie nada de lo que ve el visitante.
   const beneficios = localSpecs?.beneficios ?? [];
+  const beneficiosTexto = localSpecs?.beneficiosTexto ?? [];
 
   return {
     ...result,
     roomTypeDescription: preferLocalText(localSpecs?.roomTypeDescriptionLocalEs, model.presentation.roomTypeDescription),
-    roomTypeFeatures: model.presentation.roomTypeFeatures,
+    roomTypeFeatures: beneficiosTexto.length > 0 ? beneficiosTexto : model.presentation.roomTypeFeatures,
     beneficios,
     ...(includeSpecs ? { bedrooms: resolvedSpecs.bedrooms } : {}),
   } as RoomTypeReducedDetailModel;

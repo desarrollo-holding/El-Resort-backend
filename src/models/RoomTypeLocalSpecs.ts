@@ -44,8 +44,15 @@ export type RoomTypeLocalSpecsType = Document & {
     ofertaDelMesRoomRate?: number;
   };
   condominioID?: mongoose.Types.ObjectId;
-  /** Beneficios del catálogo que esta propiedad muestra. Vacío = se cae a los de Cloudbeds. */
+  /** Beneficios del catálogo que esta propiedad muestra. Vacío = se cae a `beneficiosTexto`. */
   beneficios: mongoose.Types.ObjectId[];
+  /**
+   * Comodidades congeladas de Cloudbeds (texto suelto, ya normalizado y deduplicado).
+   * NO sustituye a `beneficios` —que lleva icono y los dos idiomas— sino al respaldo que antes
+   * venía en vivo de Cloudbeds: el mismo dato, servido desde aquí. En cuanto la propiedad tenga
+   * `beneficios` cargados desde el panel, este campo deja de usarse.
+   */
+  beneficiosTexto: string[];
   /** Nombre/descripción locales; `es` vacío = se cae al dato de Cloudbeds (ver roomTypesShow.service.ts). */
   roomTypeName?: { es: string; en?: string | null };
   roomTypeDescription?: { es: string; en?: string | null };
@@ -145,6 +152,11 @@ const RoomTypeLocalSpecsSchema: Schema = new Schema(
       required: true,
       default: [],
       index: true,
+    },
+    beneficiosTexto: {
+      type: [String],
+      required: true,
+      default: [],
     },
     roomTypeName: {
       es: { type: String, required: false, trim: true },

@@ -43,7 +43,7 @@ export const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs?: string[]): Prom
   }
 
   const docs = await RoomTypeLocalSpecs.find(filter)
-    .select({ roomTypeID: 1, bathroomsCount: 1, titleColor: 1, bedrooms: 1, portada: 1, portadaMenu: 1, posicion_fotos_portadas: 1, orden: 1, beneficios: 1, roomTypeName: 1, roomTypeDescription: 1, maxGuests: 1 })
+    .select({ roomTypeID: 1, bathroomsCount: 1, titleColor: 1, bedrooms: 1, portada: 1, portadaMenu: 1, posicion_fotos_portadas: 1, orden: 1, beneficios: 1, beneficiosTexto: 1, roomTypeName: 1, roomTypeDescription: 1, maxGuests: 1 })
     .lean();
 
   // Una sola consulta al catálogo para todas las propiedades del listado.
@@ -85,6 +85,9 @@ export const fetchRoomTypeLocalSpecsIndex = async (roomTypeIDs?: string[]): Prom
       posicion_fotos_portadas,
       orden,
       beneficios: beneficiosByRoomType.get(doc.roomTypeID) ?? [],
+      beneficiosTexto: Array.isArray((doc as any).beneficiosTexto)
+        ? ((doc as any).beneficiosTexto as unknown[]).filter((v): v is string => typeof v === "string")
+        : [],
       roomTypeNameLocalEs: typeof rawName?.es === "string" ? rawName.es : undefined,
       roomTypeNameLocalEn: typeof rawName?.en === "string" ? rawName.en : null,
       roomTypeDescriptionLocalEs: typeof rawDescription?.es === "string" ? rawDescription.es : undefined,
