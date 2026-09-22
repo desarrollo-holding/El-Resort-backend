@@ -60,7 +60,15 @@ export type BuiltVariants = {
 // Cola de un solo carril: `sharp.concurrency(1)` limita los hilos de UN pipeline, pero dos
 // subidas simultáneas desde el panel abrirían dos pipelines y duplicarían el pico de
 // memoria. Encadenamos todas las llamadas para que se procesen una tras otra.
+//
+// Se exporta como `enqueueImageWork` para que TODO el trabajo de sharp del proceso comparta este
+// carril y no solo las subidas: la generación de las imágenes Open Graph
+// (roomOgImage.service.ts) la usa por el mismo motivo. Dos colas separadas serían dos pipelines
+// simultáneos, que es exactamente lo que esto existe para evitar.
 let chain: Promise<unknown> = Promise.resolve();
+export function enqueueImageWork<T>(task: () => Promise<T>): Promise<T> {
+  return enqueue(task);
+}
 function enqueue<T>(task: () => Promise<T>): Promise<T> {
   const result = chain.then(task, task) as Promise<T>;
   chain = result.then(
