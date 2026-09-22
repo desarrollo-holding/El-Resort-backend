@@ -76,6 +76,9 @@ export class RoomOgImageController {
       const etag = `"${fingerprint(sourceUrl, rect)}"`;
       // Un scraper que ya tiene la imagen revalida con If-None-Match: 304 y no se decodifica nada.
       if (req.headers["if-none-match"] === etag) {
+        // También en el 304: el navegador vuelve a aplicar la política al revalidar, y sin la
+        // cabecera acá una imagen ya cacheada dejaría de mostrarse en la primera revalidación.
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
         res.status(304).end();
         return;
       }
@@ -94,6 +97,14 @@ export class RoomOgImageController {
         "Content-Type": "image/jpeg",
         "Content-Length": image.length,
         ETag: etag,
+        // `helmet()` pone `same-origin` en toda la API, y con eso el navegador BLOQUEA esta imagen
+        // en cuanto la carga una página de otro origen — que es el caso normal: la publica
+        // elresort.pe y la muestran previsualizadores ajenos. Los scrapers de WhatsApp y Facebook
+        // la bajan del lado del servidor y no aplican la regla, así que el síntoma es una imagen
+        // que responde 200 en un `curl` y aun así no aparece en pantalla.
+        // Se levanta SOLO acá: es un archivo público hecho para embeberse en cualquier lado, a
+        // diferencia del resto de la API, que sigue con el `same-origin` de helmet.
+        "Cross-Origin-Resource-Policy": "cross-origin",
         // Un día en el cliente y una semana en el borde. La URL que publica el frontend lleva
         // además un `?v=` derivado de la foto y el encuadre, así que al cambiarlos el bot ve una
         // URL nueva y no tiene que esperar a que expire nada.
