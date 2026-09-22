@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Storage } from '@google-cloud/storage';
 import { getGcsConfigFromEnv } from '../config/gcs';
 import { buildVariants, type ImageProfileKey } from './imageOptimizer';
+import { resolveStoredContentType } from './mediaContentType';
 import type { ImageAssetType } from '../models/shared/imageAsset';
 
 // Formatos vectoriales/animados que no pasan por sharp: recodificarlos a WebP estático les
@@ -30,8 +31,23 @@ export class GcsStorageService {
     return storage.bucket(bucket);
   }
 
+  /**
+   * Codifica la clave para poder meterla en una URL. Las carpetas de imagen
+   * (`fotosresort/<timestamp>-<uuid>/w768.webp`) ya son seguras y esto no les cambia nada, pero un
+   * objeto plano lleva el NOMBRE ORIGINAL del archivo dentro de la clave (`videos/<ts>_<nombre>`) y
+   * ahí entra lo que el admin tuviera en el escritorio: espacios, acentos, y sobre todo `#` y `?`,
+   * que sin codificar cortan la URL en seco — el navegador los lee como fragmento y query, pide un
+   * objeto que no existe y el `<video>` se queda sin fuente.
+   *
+   * Se codifica segmento a segmento para no tocar las `/` de la propia ruta. Es compatible con
+   * `extractKeyFromUrl`, que ya decodifica al recorrer el camino inverso.
+   */
+  private static encodeObjectKey(objectKey: string): string {
+    return objectKey.split('/').map(encodeURIComponent).join('/');
+  }
+
   private static publicUrlFor(objectKey: string): string {
-    return `https://storage.googleapis.com/${getGcsConfigFromEnv().bucket}/${objectKey}`;
+    return `https://storage.googleapis.com/${getGcsConfigFromEnv().bucket}/${this.encodeObjectKey(objectKey)}`;
   }
 
   /**
@@ -102,7 +118,13 @@ export class GcsStorageService {
 
     if (!isRasterizable) {
       const fileName = `${folder}/${timestamp}_${originalName}`;
-      const { fileId, url } = await this.uploadFlatObject(bucket, fileName, fileBuffer, mimeType);
+      // NO se guarda `mimeType` tal cual: es lo que declaró el navegador, y en Windows llega vacío o
+      // `application/octet-stream` cuando la extensión no está asociada en el registro. Guardado así,
+      // el vídeo se publica con un tipo que no es de medios y el `<video>` descarta la fuente sin
+      // intentar decodificarla («NotSupportedError: The element has no supported sources»). Ver
+      // services/mediaContentType.ts.
+      const contentType = resolveStoredContentType(originalName, mimeType);
+      const { fileId, url } = await this.uploadFlatObject(bucket, fileName, fileBuffer, contentType);
       return { fileId, url, variants: [] };
     }
 
@@ -244,7 +266,7 @@ export class GcsStorageService {
           });
           url = signedUrl;
         } else {
-          url = `https://storage.googleapis.com/${getGcsConfigFromEnv().bucket}/${file.name}`;
+          url = this.publicUrlFor(file.name);
         }
 
         return {

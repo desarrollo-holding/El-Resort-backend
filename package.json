@@ -12,7 +12,8 @@
     "media:backfill": "ts-node src/scripts/mediaBackfill.ts",
     "media:variantes": "ts-node src/scripts/registrarVariantesExistentes.ts",
     "media:respaldo": "ts-node src/scripts/respaldoColecciones.ts",
-    "media:sync": "ts-node src/scripts/syncMediaToDb.ts"
+    "media:sync": "ts-node src/scripts/syncMediaToDb.ts",
+    "media:mime": "ts-node src/scripts/fixMediaContentType.ts"
   },
   "keywords": [],
   "author": "Julio Tornero",

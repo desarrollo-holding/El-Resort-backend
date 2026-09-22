@@ -146,6 +146,47 @@ describe("GcsStorageService.uploadFile — excepciones sin recodificar", () => {
     expect(result.fileId).toMatch(/^videos\//);
     expect(result.variants).toEqual([]);
   });
+
+  // Este es el caso que dejaba el vídeo sin reproducir: el navegador manda la parte como
+  // `application/octet-stream` (Windows, extensión sin asociar) y ese valor acababa siendo el
+  // Content-Type publicado, así que el `<video>` descartaba la fuente sin decodificarla.
+  it("publica el video con un tipo de medios aunque el navegador no haya declarado ninguno", async () => {
+    const fakeVideo = Buffer.from("no-es-un-video-real");
+
+    const octetStream = await GcsStorageService.uploadFile({
+      fileBuffer: fakeVideo,
+      originalName: "tour.mp4",
+      mimeType: "application/octet-stream",
+      mediaKind: "video",
+    });
+    expect(state.store.get(octetStream.fileId)?.contentType).toBe("video/mp4");
+
+    const sinTipo = await GcsStorageService.uploadFile({
+      fileBuffer: fakeVideo,
+      originalName: "vertical.webm",
+      mimeType: "",
+      mediaKind: "video",
+    });
+    expect(state.store.get(sinTipo.fileId)?.contentType).toBe("video/webm");
+  });
+
+  it("codifica la URL pública del objeto plano: el nombre original entra en la clave", async () => {
+    const fakeVideo = Buffer.from("no-es-un-video-real");
+    const result = await GcsStorageService.uploadFile({
+      fileBuffer: fakeVideo,
+      originalName: "Village 5 #2 final.mp4",
+      mimeType: "video/mp4",
+      mediaKind: "video",
+    });
+
+    // La clave del objeto conserva el nombre tal cual...
+    expect(result.fileId).toContain("Village 5 #2 final.mp4");
+    // ...pero la URL no puede llevar el `#` crudo: cortaría la petición antes del archivo.
+    expect(result.url).not.toContain("#");
+    expect(result.url).toContain("Village%205%20%232%20final.mp4");
+    // Y el camino inverso sigue devolviendo la clave original, para poder borrar el objeto.
+    expect(GcsStorageService.extractKeyFromUrl(result.url)).toBe(result.fileId);
+  });
 });
 
 describe("GcsStorageService.deleteFile", () => {
