@@ -84,7 +84,8 @@ const isDirectUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 const isFrontendLocalPath = (value: string): boolean => /^(src\/|\.\/|\.\.\/|assets\/)/i.test(value);
 const isMediaRef = (value: string): boolean => /^media:\/\//i.test(value);
 
-const normalizeJsonMediaNodes = async (
+/** Exportada solo para test: normaliza cada nodo `{ src }` del árbol de medios de una sección. */
+export const normalizeJsonMediaNodes = async (
   value: JsonLike,
   filesByKey: Map<string, Express.Multer.File[]>,
   uploadedFileIds: string[]
@@ -105,8 +106,17 @@ const normalizeJsonMediaNodes = async (
     // ya tuviera guardados (o nada, si nunca los tuvo).
     let freshImageMeta: { width?: number; height?: number; variants: unknown[] } | undefined;
     let wasFreshUpload = false;
+    /**
+     * Ranura declarada pero vacia: el admin todavia no subio nada, o quito lo que habia. No es
+     * un error -- se guarda el hueco (`src: ""`, `status: "missing"`) y el front lo lee como
+     * "sin medio" y no pinta nada (p. ej. los decorativos de esquina, que son opcionales por
+     * seccion). Antes esto caia en el `else` de abajo y respondia 400 `src invalido:`.
+     */
+    const isEmptySlot = normalizedSrcInput.length === 0;
 
-    if (isMediaRef(normalizedSrcInput)) {
+    if (isEmptySlot) {
+      finalSrc = "";
+    } else if (isMediaRef(normalizedSrcInput)) {
       const key = normalizedSrcInput.replace(/^media:\/\//i, "").trim();
       if (!key) {
         throw Object.assign(new Error("src media:// requiere una key"), { status: 400 });
@@ -159,17 +169,19 @@ const normalizeJsonMediaNodes = async (
     const normalizedMediaNode: JsonRecord = {
       ...value,
       src: finalSrc,
+      // Con `src` vacio no hay extension ni mimetype que mirar: `detectMediaKind` cae al `kind`
+      // que ya traia el nodo, que es justo lo que declara la ranura (`image`, `video`).
       kind: detectMediaKind({ src: finalSrc, mimeType: mimeTypeForKind, currentKind: value.kind }),
-      status: "existing",
+      status: isEmptySlot ? "missing" : "existing",
     };
 
     if (freshImageMeta) {
       normalizedMediaNode.width = freshImageMeta.width;
       normalizedMediaNode.height = freshImageMeta.height;
       normalizedMediaNode.variants = freshImageMeta.variants;
-    } else if (wasFreshUpload) {
-      // Se reemplazó el archivo por uno que no genera variantes (video, SVG, GIF): la
-      // metadata de la versión anterior ya no aplica.
+    } else if (wasFreshUpload || isEmptySlot) {
+      // Se reemplazó el archivo por uno que no genera variantes (video, SVG, GIF) o se vació la
+      // ranura: la metadata de la versión anterior ya no aplica.
       delete normalizedMediaNode.width;
       delete normalizedMediaNode.height;
       delete normalizedMediaNode.variants;
