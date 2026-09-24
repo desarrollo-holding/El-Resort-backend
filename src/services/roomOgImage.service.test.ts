@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeOgCrop, parseCropCoordinates, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "./roomOgImage.service";
+import { computeOgCrop, parseCropCoordinates, pickOgSource, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "./roomOgImage.service";
 
 const RATIO = OG_IMAGE_WIDTH / OG_IMAGE_HEIGHT;
 const ratioOf = (r: { w: number; h: number }) => r.w / r.h;
@@ -25,7 +25,60 @@ describe("parseCropCoordinates", () => {
   });
 });
 
+describe("pickOgSource", () => {
+  const asset = (name: string) => ({ url: `https://cdn/${name}.webp`, storageKey: "", storagePrefix: "", variants: [] });
+  const posicion = {
+    portada: { desktop_coordinates: "1,1,1,1", mobile_coordinates: "0,47,655,820" },
+    portadaMenu: { desktop_coordinates: "0,300,2400,920", mobile_coordinates: "9,9,9,9" },
+  };
+
+  it("usa portadaMenu con su encuadre de escritorio", () => {
+    expect(pickOgSource({ portada: asset("portada"), portadaMenu: asset("menu"), posicion_fotos_portadas: posicion })).toEqual({
+      field: "portadaMenu",
+      url: "https://cdn/menu.webp",
+      rect: { x: 0, y: 300, w: 2400, h: 920 },
+    });
+  });
+
+  it("cae a portada con su encuadre móvil si no hay portadaMenu", () => {
+    expect(pickOgSource({ portada: asset("portada"), portadaMenu: null, posicion_fotos_portadas: posicion })).toEqual({
+      field: "portada",
+      url: "https://cdn/portada.webp",
+      rect: { x: 0, y: 47, w: 655, h: 820 },
+    });
+  });
+
+  it("no cruza encuadres: portadaMenu sin encuadre propio va entera, no con el de portada", () => {
+    const source = pickOgSource({
+      portada: asset("portada"),
+      portadaMenu: asset("menu"),
+      posicion_fotos_portadas: { portada: posicion.portada },
+    });
+    expect(source).toEqual({ field: "portadaMenu", url: "https://cdn/menu.webp", rect: null });
+  });
+
+  it("acepta el string suelto de documentos previos al pipeline", () => {
+    expect(pickOgSource({ portadaMenu: "https://cdn/vieja.jpg" })?.url).toBe("https://cdn/vieja.jpg");
+  });
+
+  it("devuelve null sin ninguna de las dos fotos", () => {
+    expect(pickOgSource(null)).toBeNull();
+    expect(pickOgSource({ portada: null, portadaMenu: "" })).toBeNull();
+  });
+});
+
 describe("computeOgCrop", () => {
+  it("agrega alto al encuadre de escritorio, que es más apaisado que 1.91:1", () => {
+    // Encuadre 1200×460 del hero sobre una portadaMenu de 2400×1600.
+    const bounds = { width: 2400, height: 1600 };
+    const rect = { x: 0, y: 400, w: 2400, h: 920 };
+    const crop = computeOgCrop(bounds, rect);
+
+    expect(ratioOf(crop)).toBeCloseTo(RATIO, 2);
+    expect(contains(crop, rect)).toBe(true);
+    expect(crop.w).toBe(2400);
+  });
+
   it("ensancha el encuadre vertical sin comerle nada de alto, cuando la foto da a los lados", () => {
     // Caso real: Casa Vibras 56, portada 1200×1600 y encuadre móvil vertical.
     const bounds = { width: 1200, height: 1600 };

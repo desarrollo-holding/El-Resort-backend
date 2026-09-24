@@ -10,8 +10,7 @@ import { createHash } from "node:crypto";
 import mongoose from "mongoose";
 import RoomTypeLocalSpecs from "../models/RoomTypeLocalSpecs";
 import { sendErrorResponse } from "../utils/errors";
-import { parseCropCoordinates, renderOgImage, type CropRect } from "../services/roomOgImage.service";
-import { normalizeImageAsset } from "../models/shared/imageAsset";
+import { pickOgSource, renderOgImage, type CropRect } from "../services/roomOgImage.service";
 
 /**
  * Caché en memoria. Son dieciséis propiedades y ~150 KB por imagen, así que el tope holgado de 32
@@ -37,13 +36,6 @@ function fingerprint(sourceUrl: string, rect: CropRect | null): string {
   return createHash("sha1").update(`${sourceUrl}|${rectKey}`).digest("hex").slice(0, 16);
 }
 
-/** La URL más grande disponible de la `portada`: se recorta del original, no de una variante. */
-function resolveSourceUrl(portada: unknown): string | null {
-  const asset = normalizeImageAsset(portada);
-  const url = typeof asset?.url === "string" ? asset.url.trim() : "";
-  return url && /^https?:\/\//i.test(url) ? url : null;
-}
-
 export class RoomOgImageController {
   static showRoomOgImage = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -58,20 +50,19 @@ export class RoomOgImageController {
       }
 
       const doc = await RoomTypeLocalSpecs.findOne({ roomTypeID })
-        .select({ roomTypeID: 1, portada: 1, posicion_fotos_portadas: 1 })
+        .select({ roomTypeID: 1, portada: 1, portadaMenu: 1, posicion_fotos_portadas: 1 })
         .lean();
 
-      const sourceUrl = doc ? resolveSourceUrl(doc.portada) : null;
-      if (!sourceUrl) {
+      // `portadaMenu` con su encuadre de escritorio; `portada` solo si aún no hay `portadaMenu`.
+      const source = pickOgSource(doc);
+      if (!source) {
         // Sin foto cargada no hay nada que generar. 404 y no una imagen de relleno: el que llama
         // (el frontend, al armar el og:image) tiene su propia cascada de respaldo y sabe elegir
         // mejor que este endpoint.
-        res.status(404).json({ error: "La propiedad no tiene portada cargada" });
+        res.status(404).json({ error: "La propiedad no tiene portadaMenu ni portada cargada" });
         return;
       }
-
-      const framing = (doc?.posicion_fotos_portadas as Record<string, unknown> | null | undefined)?.portada;
-      const rect = parseCropCoordinates((framing as Record<string, unknown> | undefined)?.mobile_coordinates);
+      const { url: sourceUrl, rect } = source;
 
       const etag = `"${fingerprint(sourceUrl, rect)}"`;
       // Un scraper que ya tiene la imagen revalida con If-None-Match: 304 y no se decodifica nada.
