@@ -2,6 +2,9 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
     "dev:api": "nodemon --exec ts-node src/index.ts --api",
@@ -13,7 +16,8 @@
     "media:variantes": "ts-node src/scripts/registrarVariantesExistentes.ts",
     "media:respaldo": "ts-node src/scripts/respaldoColecciones.ts",
     "media:sync": "ts-node src/scripts/syncMediaToDb.ts",
-    "media:mime": "ts-node src/scripts/fixMediaContentType.ts"
+    "media:mime": "ts-node src/scripts/fixMediaContentType.ts",
+    "media:cartas": "ts-node src/scripts/generarPaginasCartas.ts"
   },
   "keywords": [],
   "author": "Julio Tornero",
@@ -23,6 +27,7 @@
     "@google-cloud/storage": "^7.21.0",
     "@google/genai": "^1.50.1",
     "@google/generative-ai": "^0.24.1",
+    "@napi-rs/canvas": "^1.0.9",
     "@supabase/supabase-js": "^2.110.2",
     "@vitalets/google-translate-api": "^9.2.1",
     "axios": "^1.18.1",
@@ -41,6 +46,7 @@
     "mongoose": "^8.24.1",
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
+    "pdfjs-dist": "^6.3.289",
     "sharp": "^0.35.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",

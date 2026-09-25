@@ -113,3 +113,38 @@ describe("cleanupOrphanedLandingMedia", () => {
     expect(deletedFileIds).toEqual([]);
   });
 });
+
+/**
+ * Las páginas de una carta (services/pdfPages.ts) cuelgan de la hoja del PDF, que es `kind: "file"`.
+ * La limpieza tiene que entrar igual a ese nodo: al reemplazar la carta, sus páginas viejas salen del
+ * árbol y hay que borrarlas del bucket; si la carta no cambió, no se toca nada.
+ */
+describe("cleanupOrphanedLandingMedia: páginas de la carta en PDF", () => {
+  const carta = (pdf: string, pages: string[]) => ({
+    menuPdf: {
+      es: {
+        src: url(pdf),
+        kind: "file",
+        status: "existing",
+        pages: pages.map((key) => ({ src: url(key), kind: "image", status: "existing" })),
+      },
+    },
+  });
+
+  it("al reemplazar el PDF borra las páginas del anterior, carpeta por carpeta", async () => {
+    const previous = carta("files/1_carta.pdf", ["fotosresort/p1/orig.webp", "fotosresort/p2/orig.webp"]);
+    const next = carta("files/2_carta.pdf", ["fotosresort/p9/orig.webp"]);
+
+    await cleanupOrphanedLandingMedia(previous, next);
+
+    expect(deletedFileIds.sort()).toEqual(["fotosresort/p1/orig.webp", "fotosresort/p2/orig.webp"]);
+  });
+
+  it("si la carta no cambió no borra ninguna página", async () => {
+    const tree = carta("files/1_carta.pdf", ["fotosresort/p1/orig.webp", "fotosresort/p2/orig.webp"]);
+
+    await cleanupOrphanedLandingMedia(tree, structuredClone(tree));
+
+    expect(deletedFileIds).toEqual([]);
+  });
+});
