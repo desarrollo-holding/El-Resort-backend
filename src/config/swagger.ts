@@ -230,6 +230,18 @@ export const createSwaggerSpec = () => {
               montoAdicional: { type: "number", nullable: true, example: 30 },
               stock: { type: "number", nullable: true, example: 10 },
               imagenes: { type: "array", items: { type: "string" }, example: [] },
+              encuadreImagen: {
+                type: "object",
+                nullable: true,
+                description:
+                  "Encuadre de la foto en la tarjeta de Actividades personalizadas, uno por viewport (\"x,y,ancho,alto\" en píxeles del archivo guardado). null = foto centrada. Mismo contrato que en áreas y retiros: en multipart va como texto JSON; null, \"\" o \"null\" lo borran; con source_width/source_height se reescala al archivo guardado; si cambia la foto sin encuadre nuevo, se borra.",
+                properties: {
+                  desktop_coordinates: { type: "string", example: "120,0,2110,1812" },
+                  mobile_coordinates: { type: "string", example: "120,0,2110,1812" },
+                  source_width: { type: "number", example: 4032 },
+                  source_height: { type: "number", example: 3024 },
+                },
+              },
               diasNoDisponibles: { type: "array", items: { type: "string" }, nullable: true, example: [] },
               fechasBloqueadas: {
                 type: "array",

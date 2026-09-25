@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 import type { ImageAssetType } from "./shared/imageAsset";
+import { encuadreImagenSchema, type EncuadreImagen } from "./shared/encuadreImagen";
 
 /** `string` = dato previo a este pipeline; ver ./shared/imageAsset para el porqué de la unión. */
 export type ExtraImageField = ImageAssetType | string;
@@ -18,6 +19,8 @@ export type ExtraType = Document & {
   montoAdicional: number;
   stock: number;
   imagenes: ExtraImageField[];
+  /** Encuadre de `imagenes[0]` en la tarjeta de Actividades personalizadas. `null` = foto centrada. */
+  encuadreImagen?: EncuadreImagen | null;
   diasNoDisponibles?: string[];
   fechasBloqueadas?: {
     inicio: Date;
@@ -83,6 +86,10 @@ const ExtraSchema: Schema = new Schema({
   imagenes: {
     type: [Schema.Types.Mixed],
     required: false,
+  },
+  encuadreImagen: {
+    type: encuadreImagenSchema,
+    default: null,
   },
   diasNoDisponibles: {
     type: [String],

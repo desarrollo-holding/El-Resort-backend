@@ -6,6 +6,7 @@ import { GcsStorageService } from "../services/csStorage.service";
 import { InvalidImageError } from "../services/imageOptimizer";
 import { uploadImageAsset } from "../services/imageAssetUpload";
 import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
+import { encuadreParaImagen, parseEncuadreEntrada } from "./encuadreImagen";
 import { parseIdiomaQuery } from "../utils/idioma";
 
 import { sendErrorResponse } from "../utils/errors";
@@ -188,6 +189,13 @@ export class ExtraController {
   static createExtra = async (req: Request, res: Response) => {
     const uploadedFileIds: string[] = [];
 
+    // Antes de subir nada: un encuadre ilegible es un 400, y así no queda una foto huérfana en el bucket.
+    const entradaEncuadre = parseEncuadreEntrada(req.body?.encuadreImagen);
+    if (entradaEncuadre.tipo === "invalido") {
+      res.status(400).json({ error: entradaEncuadre.error });
+      return;
+    }
+
     try {
       const imageUrls = parseImageUrlsInput(req.body?.imagenes);
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
@@ -208,7 +216,18 @@ export class ExtraController {
         }
       }
 
-      const extra = new Extra({ ...req.body, imagenes });
+      // `encuadreImagen` no pasa tal cual del body: en multipart llega como texto JSON, y además hay que
+      // llevarlo a la escala del archivo guardado.
+      const campos = { ...(req.body ?? {}) } as Record<string, unknown>;
+      delete campos.encuadreImagen;
+      const extra = new Extra({
+        ...campos,
+        imagenes,
+        encuadreImagen:
+          entradaEncuadre.tipo === "fijar"
+            ? encuadreParaImagen(entradaEncuadre.encuadre, entradaEncuadre.origen, imagenes[0] ?? null)
+            : null,
+      });
       await extra.save();
       res.send("Extra creado correctamente");
     } catch (error) {
@@ -274,6 +293,14 @@ export class ExtraController {
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
       const totalIncomingImages = imageUrls.length + files.length;
       const payload = { ...req.body } as Record<string, unknown>;
+      // Se resuelve aparte (ver abajo): en multipart llega como texto JSON y hay que reescalarlo.
+      delete payload.encuadreImagen;
+      const entradaEncuadre = parseEncuadreEntrada(req.body?.encuadreImagen);
+      if (entradaEncuadre.tipo === "invalido") {
+        res.status(400).json({ error: entradaEncuadre.error });
+        return;
+      }
+
       const currentExtra = await Extra.findById(id);
 
       if (!currentExtra) {
@@ -302,6 +329,17 @@ export class ExtraController {
         }
 
         payload.imagenes = nextImage ? [nextImage] : [];
+      }
+
+      const fotoActual = Array.isArray(payload.imagenes)
+        ? ((payload.imagenes as ImageAssetType[])[0] ?? null)
+        : (previousImages[0] ?? null);
+      const cambioLaFoto = (fotoActual?.url ?? null) !== (previousImages[0]?.url ?? null);
+      if (entradaEncuadre.tipo === "fijar") {
+        payload.encuadreImagen = encuadreParaImagen(entradaEncuadre.encuadre, entradaEncuadre.origen, fotoActual);
+      } else if (entradaEncuadre.tipo === "borrar" || cambioLaFoto) {
+        // Un encuadre es de una foto concreta: con otra foto, el rectángulo apuntaría a cualquier parte.
+        payload.encuadreImagen = null;
       }
 
       // Se editó el español: la traducción vieja quedaría desactualizada, se borra y se vuelve

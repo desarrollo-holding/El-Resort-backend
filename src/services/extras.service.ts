@@ -1,3 +1,4 @@
+import type { EncuadreImagen } from "../models/shared/encuadreImagen";
 import Extra from "../models/Extras";
 import { normalizeImageAssetArray, type ImageAssetType } from "../models/shared/imageAsset";
 import { TranslateService } from "./translate.service";
@@ -14,6 +15,7 @@ export type ExtraDto = {
   descripcion: string;
   grupo?: string;
   imagenes: ImageAssetType[];
+  encuadreImagen: EncuadreImagen | null;
 };
 
 export const ExtrasService = {
@@ -52,6 +54,7 @@ export const ExtrasService = {
         descripcion: (idioma === "en" ? extra.descripcionEn : null) || extra.descripcion,
         grupo: grupo ?? undefined,
         imagenes: normalizeImageAssetArray(extra.imagenes),
+        encuadreImagen: extra.encuadreImagen ?? null,
       };
 
       const list = grouped.get(grupo);
