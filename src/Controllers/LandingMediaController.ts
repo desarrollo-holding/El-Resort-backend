@@ -4,6 +4,7 @@ import { LANDING_MEDIA_TIPOS, type LandingMediaTipo } from "../models/LandingMed
 import { LandingMediaService } from "../services/landingMedia.service";
 import { GcsStorageService } from "../services/csStorage.service";
 import { cleanupOrphanedLandingMedia } from "../services/landingMediaOrphanCleanup";
+import { addMissingPdfPages, isPdfFile, keepSavedPdfPages, uploadPdfPages, type PdfPageNode } from "../services/pdfPages";
 
 import { sendErrorResponse } from "../utils/errors";
 type JsonRecord = Record<string, unknown>;
@@ -105,6 +106,9 @@ export const normalizeJsonMediaNodes = async (
     // vuelve a pasar por el pipeline, así que conserva el `width`/`height`/`variants` que
     // ya tuviera guardados (o nada, si nunca los tuvo).
     let freshImageMeta: { width?: number; height?: number; variants: unknown[] } | undefined;
+    // Un PDF recién subido (la carta de AUCA) se guarda también como una imagen por página: ver
+    // services/pdfPages.ts. Un PDF que ya estaba guardado conserva las `pages` que traiga el nodo.
+    let freshPdfPages: PdfPageNode[] | undefined;
     let wasFreshUpload = false;
     /**
      * Ranura declarada pero vacia: el admin todavia no subio nada, o quito lo que habia. No es
@@ -155,6 +159,12 @@ export const normalizeJsonMediaNodes = async (
       if (requestedKind === "image" && uploaded.width !== undefined) {
         freshImageMeta = { width: uploaded.width, height: uploaded.height, variants: uploaded.variants ?? [] };
       }
+      if (requestedKind === "file" && isPdfFile(file.originalname, file.mimetype)) {
+        const converted = await uploadPdfPages(file.buffer, file.originalname);
+        // A la lista de rollback: si algo falla más adelante en este guardado, se borran junto al PDF.
+        uploadedFileIds.push(...converted.fileIds);
+        freshPdfPages = converted.pages;
+      }
     } else if (isDirectUrl(normalizedSrcInput)) {
       finalSrc = normalizedSrcInput;
     } else if (isFrontendLocalPath(normalizedSrcInput)) {
@@ -186,6 +196,10 @@ export const normalizeJsonMediaNodes = async (
       delete normalizedMediaNode.height;
       delete normalizedMediaNode.variants;
     }
+    // Las páginas son del PDF anterior: al reemplazarlo o vaciar la ranura dejan de valer, y al
+    // faltar en el árbol `cleanupOrphanedLandingMedia` las borra del bucket.
+    if (wasFreshUpload || isEmptySlot) delete normalizedMediaNode.pages;
+    if (freshPdfPages) normalizedMediaNode.pages = freshPdfPages;
 
     for (const [k, v] of Object.entries(normalizedMediaNode)) {
       if (k === "src" || k === "kind" || k === "status" || k === "width" || k === "height" || k === "variants") continue;
@@ -852,6 +866,10 @@ export class LandingMediaController {
       if (payload.json !== undefined) {
 
         updatePayload.json = await normalizeJsonMediaNodes(parseJsonField(payload.json), filesByKey, uploadedFileIds);
+        // Páginas de los PDF (services/pdfPages.ts): primero se recuperan las que un panel
+        // desactualizado no mandó, y solo después se convierte lo que de verdad no tenga.
+        if (existingJson !== undefined) keepSavedPdfPages(existingJson, updatePayload.json);
+        await addMissingPdfPages(updatePayload.json, uploadedFileIds);
       }
 
       if (filesByKey.size > 0) {

@@ -294,6 +294,18 @@ export const createSwaggerSpec = () => {
                 type: "string",
                 example: "https://elresort.pe/wp-content/uploads/2025/05/yoga2-scaled.webp",
               },
+              encuadreImagen: {
+                type: "object",
+                nullable: true,
+                description:
+                  "Encuadre de la foto en la card, uno por viewport (\"x,y,ancho,alto\" en píxeles del archivo guardado). null = foto centrada. Al enviarlo: en multipart va como texto JSON; null, \"\" o \"null\" lo borran; con source_width/source_height y una foto subida en la misma petición, el servidor reescala las coordenadas al archivo que guarda. Si cambia la foto sin enviar encuadre, el anterior se borra.",
+                properties: {
+                  desktop_coordinates: { type: "string", example: "120,0,1164,960" },
+                  mobile_coordinates: { type: "string", example: "140,0,1119,960" },
+                  source_width: { type: "number", example: 4032 },
+                  source_height: { type: "number", example: 3024 },
+                },
+              },
               incluye: { $ref: "#/components/schemas/RetiroIncluye" },
               actividades: {
                 type: "array",
