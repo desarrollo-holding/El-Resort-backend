@@ -8,6 +8,7 @@ import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } fr
 import { asOptionalString } from "../utils/http";
 import { parseIdiomaQuery } from "../utils/idioma";
 import { TranslateService } from "../services/translate.service";
+import { encuadreParaImagen, parseEncuadreEntrada } from "./areaEncuadre";
 
 import { sendErrorResponse } from "../utils/errors";
 const parseImagesToDelete = (body: unknown): string[] => {
@@ -278,6 +279,13 @@ export class AreaController {
 
     let uploadedFileId: string | null = null;
 
+    // Antes de subir nada: un encuadre ilegible es un 400, y así no queda una foto huérfana en el bucket.
+    const entradaEncuadre = parseEncuadreEntrada(req.body?.encuadreImagen);
+    if (entradaEncuadre.tipo === "invalido") {
+      res.status(400).json({ error: entradaEncuadre.error });
+      return;
+    }
+
     try {
       let imagenes: ImageAssetType[] = normalizeImageAssetArray(imageUrls);
 
@@ -293,6 +301,10 @@ export class AreaController {
         descripcion: typeof descripcion === "string" ? descripcion : "",
         categoria,
         imagenes,
+        encuadreImagen:
+          entradaEncuadre.tipo === "fijar"
+            ? encuadreParaImagen(entradaEncuadre.encuadre, entradaEncuadre.origen, imagenes[0] ?? null)
+            : null,
       });
 
       await area.save();
@@ -352,9 +364,21 @@ export class AreaController {
       const imageUrls = parseImageUrlsInput(req.body?.imagenes);
       const files = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
       const totalIncomingImages = imageUrls.length + files.length;
+      const entradaEncuadre = parseEncuadreEntrada(req.body?.encuadreImagen);
 
-      if (!nombre && descripcion === undefined && imageUrls.length === 0 && files.length === 0) {
-        res.status(400).json({ error: "Debes enviar nombre, descripcion y/o imagenes (url o archivo)" });
+      if (entradaEncuadre.tipo === "invalido") {
+        res.status(400).json({ error: entradaEncuadre.error });
+        return;
+      }
+
+      if (
+        !nombre &&
+        descripcion === undefined &&
+        imageUrls.length === 0 &&
+        files.length === 0 &&
+        entradaEncuadre.tipo === "ausente"
+      ) {
+        res.status(400).json({ error: "Debes enviar nombre, descripcion, imagenes (url o archivo) y/o encuadreImagen" });
         return;
       }
 
@@ -396,6 +420,15 @@ export class AreaController {
         }
 
         area.imagenes = nextImage ? [nextImage] : [];
+      }
+
+      const fotoActual = normalizeImageAssetArray(area.imagenes)[0] ?? null;
+      const cambioLaFoto = (fotoActual?.url ?? null) !== (previousImages[0]?.url ?? null);
+      if (entradaEncuadre.tipo === "fijar") {
+        area.encuadreImagen = encuadreParaImagen(entradaEncuadre.encuadre, entradaEncuadre.origen, fotoActual);
+      } else if (entradaEncuadre.tipo === "borrar" || cambioLaFoto) {
+        // Un encuadre es de una foto concreta: con otra foto, el rectángulo apuntaría a cualquier parte.
+        area.encuadreImagen = null;
       }
 
       await area.save();
@@ -461,6 +494,9 @@ export class AreaController {
       }
 
       area.imagenes = remaining;
+      if ((remaining[0]?.url ?? null) !== (existing[0]?.url ?? null)) {
+        area.encuadreImagen = null;
+      }
       await area.save();
 
       const removed = existing.filter((asset) => removeSet.has(asset.url));
