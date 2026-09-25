@@ -3,6 +3,7 @@ import { Storage } from '@google-cloud/storage';
 import { getGcsConfigFromEnv } from '../config/gcs';
 import { buildVariants, type ImageProfileKey } from './imageOptimizer';
 import { resolveStoredContentType } from './mediaContentType';
+import { assertBrowserPlayableVideo } from './videoCodec';
 import type { ImageAssetType } from '../models/shared/imageAsset';
 
 // Formatos vectoriales/animados que no pasan por sharp: recodificarlos a WebP estático les
@@ -117,6 +118,8 @@ export class GcsStorageService {
     const isRasterizable = mediaKind === 'image' && !RASTER_MIME_PREFIX_EXCEPTIONS.has(mimeType.toLowerCase());
 
     if (!isRasterizable) {
+      // Antes de tocar el bucket: un HEVC subido se ve negro en muchos equipos (ver videoCodec.ts).
+      if (mediaKind === 'video') assertBrowserPlayableVideo(fileBuffer, originalName);
       const fileName = `${folder}/${timestamp}_${originalName}`;
       // NO se guarda `mimeType` tal cual: es lo que declaró el navegador, y en Windows llega vacío o
       // `application/octet-stream` cuando la extensión no está asociada en el registro. Guardado así,

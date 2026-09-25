@@ -377,6 +377,16 @@ export const createSwaggerSpec = () => {
               nombre: { type: "string", example: "Spa" },
               categoria: { type: "string", enum: ["AREAS", "ACTIVIDADES_GRUPALES"], example: "AREAS" },
               imagenes: { type: "array", items: { type: "string" }, example: [] },
+              encuadreImagen: {
+                type: "object",
+                nullable: true,
+                description:
+                  "Encuadre de la foto de la tarjeta, uno por viewport, en píxeles del orig guardado (\"x,y,ancho,alto\"). null = foto centrada.",
+                properties: {
+                  desktop_coordinates: { type: "string", example: "120,0,1600,1800" },
+                  mobile_coordinates: { type: "string", example: "300,0,1500,1800" },
+                },
+              },
             },
           },
           CreateAreaRequest: {
@@ -386,6 +396,18 @@ export const createSwaggerSpec = () => {
               nombre: { type: "string", example: "Spa" },
               categoria: { type: "string", enum: ["AREAS", "ACTIVIDADES_GRUPALES"], example: "AREAS" },
               imagenes: { type: "array", items: { type: "string" }, example: [] },
+              encuadreImagen: {
+                type: "object",
+                nullable: true,
+                description:
+                  "Opcional. En multipart va como texto JSON. null, \"\" o \"null\" lo borran. source_width/source_height: tamaño de la imagen sobre la que se midieron las coordenadas; el servidor las reescala al archivo que guarda. Si cambia la foto sin enviar encuadre, el anterior se borra.",
+                properties: {
+                  desktop_coordinates: { type: "string", example: "200,0,2667,3000" },
+                  mobile_coordinates: { type: "string", example: "500,0,2500,3000" },
+                  source_width: { type: "number", example: 4032 },
+                  source_height: { type: "number", example: 3024 },
+                },
+              },
             },
             example: {
               nombre: "Spa",

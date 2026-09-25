@@ -334,6 +334,20 @@ const describeImageProcessingError = (error: unknown): DescribedError | null => 
   return null;
 };
 
+/** Vídeo en HEVC rechazado al subirlo (`UnsupportedVideoCodecError`, services/videoCodec.ts). */
+const describeVideoCodecError = (error: unknown): DescribedError | null => {
+  if (!(error instanceof Error) || error.name !== "UnsupportedVideoCodecError") return null;
+  const fileName = asRecord(error).fileName;
+  const cual = typeof fileName === "string" && fileName.trim() ? ` «${fileName.trim()}»` : "";
+  return {
+    status: 415,
+    code: "UNSUPPORTED_VIDEO_CODEC",
+    message: `El vídeo${cual} está en formato HEVC (H.265): en muchos equipos se oiría el audio pero la imagen quedaría en negro, así que no se subió.`,
+    detail: technicalDetail(error),
+    hint: "Vuelve a exportarlo como MP4 en H.264 y súbelo de nuevo (con HandBrake sirve el preset «Fast 1080p30» con «Web Optimized» marcado). Para que el iPhone grabe así desde el inicio: Ajustes → Cámara → Formatos → «Más compatible».",
+  };
+};
+
 /** Variables de entorno ausentes: el caso "funciona en local y no en producción". */
 const describeConfigurationError = (error: unknown): DescribedError | null => {
   const text = errorText(error);
@@ -454,6 +468,8 @@ export const describeError = (
   const described =
     describeMulterError(error, options) ??
     describeBodyParserError(error) ??
+    // Antes que los que buscan palabras en el texto: el mensaje lleva el nombre del archivo.
+    describeVideoCodecError(error) ??
     describeIntentionalHttpError(error) ??
     describeMongoError(error) ??
     describeStorageError(error) ??

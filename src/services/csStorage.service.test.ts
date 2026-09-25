@@ -187,6 +187,33 @@ describe("GcsStorageService.uploadFile — excepciones sin recodificar", () => {
     // Y el camino inverso sigue devolviendo la clave original, para poder borrar el objeto.
     expect(GcsStorageService.extractKeyFromUrl(result.url)).toBe(result.fileId);
   });
+
+  // HEVC se oye pero se ve negro en los equipos sin decodificación por hardware: no debe llegar
+  // al bucket (ver videoCodec.ts). Se arma un MP4 mínimo con una pista `vide` cuyo `stsd` es `hvc1`.
+  it("rechaza un video HEVC antes de subir nada", async () => {
+    const box = (type: string, ...children: Buffer[]): Buffer => {
+      const body = Buffer.concat(children);
+      const header = Buffer.alloc(8);
+      header.writeUInt32BE(8 + body.length, 0);
+      header.write(type, 4, "latin1");
+      return Buffer.concat([header, body]);
+    };
+    const hdlr = Buffer.alloc(25);
+    hdlr.write("vide", 8, "latin1");
+    const stsdHeader = Buffer.alloc(8);
+    stsdHeader.writeUInt32BE(1, 4);
+    const stbl = box("stbl", box("stsd", stsdHeader, box("hvc1", Buffer.alloc(78))));
+    const hevcVideo = Buffer.concat([
+      box("ftyp", Buffer.from("isom", "latin1")),
+      box("mdat", Buffer.alloc(32)),
+      box("moov", box("trak", box("mdia", box("hdlr", hdlr), box("minf", stbl)))),
+    ]);
+
+    await expect(
+      GcsStorageService.uploadFile({ fileBuffer: hevcVideo, originalName: "HT33.mp4", mimeType: "video/mp4", mediaKind: "video" })
+    ).rejects.toMatchObject({ name: "UnsupportedVideoCodecError", codec: "hvc1", fileName: "HT33.mp4" });
+    expect(state.store.size).toBe(0);
+  });
 });
 
 describe("GcsStorageService.deleteFile", () => {

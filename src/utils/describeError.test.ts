@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { describeError, formatBytes, buildErrorResponseBody } from "./describeError";
 import { toHttpError } from "./errors";
+import { UnsupportedVideoCodecError } from "../services/videoCodec";
 
 const multerError = (code: string, field?: string) =>
   Object.assign(new Error("File too large"), { name: "MulterError", code, field });
@@ -94,6 +95,26 @@ describe("describeError · configuración y servicios externos", () => {
 
     expect(described.status).toBe(502);
     expect(described.message).toContain("api.cloudbeds.com");
+  });
+});
+
+describe("describeError · vídeo en HEVC", () => {
+  it("lo rechaza con 415, nombra el archivo y dice cómo reexportarlo", () => {
+    const described = describeError(new UnsupportedVideoCodecError("HT33.mp4", "hvc1"), {
+      context: "Error al guardar la ficha de la habitación",
+    });
+
+    expect(described.status).toBe(415);
+    expect(described.code).toBe("UNSUPPORTED_VIDEO_CODEC");
+    expect(described.message).toContain("Error al guardar la ficha de la habitación:");
+    expect(described.message).toContain("«HT33.mp4»");
+    expect(described.hint).toContain("H.264");
+  });
+
+  // El mensaje del error lleva el nombre del archivo, y hay clasificadores que buscan palabras.
+  it("no lo confunde con otro error por palabras del nombre del archivo", () => {
+    const described = describeError(new UnsupportedVideoCodecError("storage permission corrupt.mp4", "hev1"));
+    expect(described.code).toBe("UNSUPPORTED_VIDEO_CODEC");
   });
 });
 
