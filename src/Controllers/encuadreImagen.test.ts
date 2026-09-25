@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { encuadreParaImagen, parseEncuadreEntrada } from "./areaEncuadre";
+import { encuadreParaImagen, parseEncuadreEntrada } from "./encuadreImagen";
 import type { ImageAssetType } from "../models/shared/imageAsset";
 
 const foto = (width?: number, height?: number): ImageAssetType => ({

@@ -1,14 +1,13 @@
-import type { AreaEncuadre } from "../models/Area";
-import type { ImageAssetType } from "../models/shared/imageAsset";
+import type { EncuadreImagen } from "../models/shared/encuadreImagen";
 import { parseCropCoordinates, type CropRect } from "../services/roomOgImage.service";
 
 type Medidas = { width: number; height: number };
 
 /**
- * Lo que llega en `encuadreImagen` al crear o editar un área.
+ * Lo que llega en `encuadreImagen` al crear o editar un área o un retiro.
  *
  * - `ausente`: el campo no vino. Lo guardado no se toca, salvo que cambie la foto (un encuadre es
- *   de una foto concreta; ver `patchAreaById`).
+ *   de una foto concreta; ver `AreaController.patchAreaById` y `RetirosService.updateById`).
  * - `borrar`: `null`, `""` o `"null"`. La foto vuelve a mostrarse centrada en la web.
  * - `fijar`: las dos coordenadas válidas y, opcionalmente, el tamaño en píxeles de la imagen sobre la
  *   que el panel las midió (`source_width`/`source_height`).
@@ -18,7 +17,7 @@ type Medidas = { width: number; height: number };
 export type EncuadreEntrada =
   | { tipo: "ausente" }
   | { tipo: "borrar" }
-  | { tipo: "fijar"; encuadre: AreaEncuadre; origen: Medidas | null }
+  | { tipo: "fijar"; encuadre: EncuadreImagen; origen: Medidas | null }
   | { tipo: "invalido"; error: string };
 
 const ERROR_FORMATO =
@@ -108,12 +107,16 @@ function llevarAlDestino(rect: CropRect, origen: Medidas | null, destino: Medida
  * Lleva el encuadre a píxeles del archivo que quedó guardado, que es lo que la web espera.
  *
  * POR QUÉ HACE FALTA. El panel mide las coordenadas sobre la foto tal como la eligió el admin, pero
- * el servidor la recodifica acotando el lado mayor a 2400 px (`imageOptimizer`, perfil `default`).
- * Una foto de celular de 4032×3024 se guarda como 2400×1800, y un recorte medido sobre la de 4032
- * apuntaría a cualquier parte de la de 2400. `CarouselFramedSlideImage` tiene una corrección por
+ * el servidor la recodifica acotando el lado mayor (`imageOptimizer`: 2400 px en el perfil `default`
+ * de las áreas, 1600 en el `single` de los retiros). Una foto de celular de 4032×3024 se guarda como
+ * 2400×1800, y un recorte medido sobre la de 4032 apuntaría a cualquier parte de la de 2400. `CarouselFramedSlideImage` tiene una corrección por
  * heurística, pero solo acierta si el recorte toca un borde de la foto, o sea, si el admin no hizo
  * zoom: justo lo contrario de reencuadrar. Acá el factor se conoce exacto, porque el panel manda el
- * tamaño sobre el que midió y el asset trae el tamaño guardado.
+ * tamaño sobre el que midió y la subida devuelve el tamaño guardado.
+ *
+ * `imagen` son las medidas del archivo guardado. Sin ellas (una foto que no se subió en esta misma
+ * petición y que el modelo no mide, como la de un retiro) las coordenadas se guardan como vinieron:
+ * el panel las midió sobre ese mismo archivo, así que ya están en su escala.
  *
  * Devuelve `null` sin foto (no hay nada que encuadrar) y cuando la proporción del origen declarado no
  * coincide con la del archivo guardado: eso pasa si alguno de los dos no aplicó la rotación EXIF, y
@@ -121,10 +124,10 @@ function llevarAlDestino(rect: CropRect, origen: Medidas | null, destino: Medida
  * encuadre que no es el que se eligió; el admin puede volver a encuadrarla sobre el archivo ya guardado.
  */
 export function encuadreParaImagen(
-  encuadre: AreaEncuadre,
+  encuadre: EncuadreImagen,
   origen: Medidas | null,
-  imagen: ImageAssetType | null
-): AreaEncuadre | null {
+  imagen: { width?: number; height?: number } | null
+): EncuadreImagen | null {
   if (!imagen) return null;
 
   const destino = imagen.width && imagen.height ? { width: imagen.width, height: imagen.height } : null;
@@ -133,7 +136,7 @@ export function encuadreParaImagen(
     const proporcionDestino = destino.width / destino.height;
     if (Math.abs(proporcionOrigen - proporcionDestino) / proporcionDestino > TOLERANCIA_PROPORCION) {
       console.warn(
-        `[Area] encuadre descartado: medido sobre ${origen.width}x${origen.height} y la foto guardada mide ${destino.width}x${destino.height}`
+        `[encuadre] descartado: medido sobre ${origen.width}x${origen.height} y la foto guardada mide ${destino.width}x${destino.height}`
       );
       return null;
     }

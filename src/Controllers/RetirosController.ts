@@ -3,6 +3,8 @@ import { RetirosService } from "../services/retiros.service";
 import { GcsStorageService } from "../services/csStorage.service";
 import { InvalidImageError } from "../services/imageOptimizer";
 import { parseIdiomaQuery } from "../utils/idioma";
+import { encuadreParaImagen, parseEncuadreEntrada, type EncuadreEntrada } from "./encuadreImagen";
+import type { EncuadreImagen } from "../models/shared/encuadreImagen";
 
 import { sendErrorResponse } from "../utils/errors";
 type RetiroIncluye = {
@@ -23,6 +25,7 @@ type RetiroPayload = {
   fechaFin?: Date;
   cuposMaximos?: number;
   imagen?: string;
+  encuadreImagen?: EncuadreImagen | null;
   incluye?: RetiroIncluye;
   actividades?: RetiroActividad[];
   precioPorPersona?: number;
@@ -133,7 +136,8 @@ const firstUploadedFile = (req: Request): Express.Multer.File | null => {
 
 /**
  * Perfil `single`: la card muestra la foto en un solo tamaño, así que generar la escalera de
- * variantes sería almacenamiento tirado. Devuelve la URL pública y la key para poder revertir.
+ * variantes sería almacenamiento tirado. Devuelve la URL pública, la key para poder revertir y las
+ * medidas del archivo guardado, que hacen falta para llevar el encuadre a su escala.
  */
 const uploadCardImage = async (file: Express.Multer.File) => {
   const uploaded = await GcsStorageService.uploadFile({
@@ -143,7 +147,20 @@ const uploadCardImage = async (file: Express.Multer.File) => {
     mediaKind: "image",
     imageProfile: "single",
   });
-  return { url: uploaded.url, fileId: uploaded.storageKey ?? uploaded.fileId };
+  return { url: uploaded.url, fileId: uploaded.storageKey ?? uploaded.fileId, width: uploaded.width, height: uploaded.height };
+};
+
+/**
+ * El encuadre que se guarda, a partir de lo que pidió el panel. `undefined`: no se toca (y si cambia
+ * la foto, `RetirosService.updateById` lo borra).
+ */
+const encuadreAGuardar = (
+  entrada: EncuadreEntrada,
+  subida: { width?: number; height?: number } | null
+): EncuadreImagen | null | undefined => {
+  if (entrada.tipo === "fijar") return encuadreParaImagen(entrada.encuadre, entrada.origen, subida ?? {});
+  if (entrada.tipo === "borrar") return null;
+  return undefined;
 };
 
 /**
@@ -260,14 +277,25 @@ export class RetirosController {
     const file = firstUploadedFile(req);
     let uploadedFileId: string | null = null;
 
+    // Antes de subir nada: un encuadre ilegible es un 400, y así no queda una foto huérfana en el bucket.
+    const entradaEncuadre = parseEncuadreEntrada(req.body?.encuadreImagen);
+    if (entradaEncuadre.tipo === "invalido") {
+      res.status(400).json({ error: entradaEncuadre.error });
+      return;
+    }
+
     try {
       const payload = buildPayload(req.body ?? {});
+      let subida: { width?: number; height?: number } | null = null;
 
       if (file) {
         const uploaded = await uploadCardImage(file);
         uploadedFileId = uploaded.fileId;
         payload.imagen = uploaded.url;
+        subida = uploaded;
       }
+
+      payload.encuadreImagen = encuadreAGuardar(entradaEncuadre, subida) ?? null;
 
       if (!payload.imagen) {
         res.status(400).json({ error: "La imagen es requerida" });
@@ -322,15 +350,26 @@ export class RetirosController {
     const file = firstUploadedFile(req);
     let uploadedFileId: string | null = null;
 
+    const entradaEncuadre = parseEncuadreEntrada(req.body?.encuadreImagen);
+    if (entradaEncuadre.tipo === "invalido") {
+      res.status(400).json({ error: entradaEncuadre.error });
+      return;
+    }
+
     try {
       const { id } = req.params;
       const payload = buildPayload(req.body ?? {});
+      let subida: { width?: number; height?: number } | null = null;
 
       if (file) {
         const uploaded = await uploadCardImage(file);
         uploadedFileId = uploaded.fileId;
         payload.imagen = uploaded.url;
+        subida = uploaded;
       }
+
+      const encuadre = encuadreAGuardar(entradaEncuadre, subida);
+      if (encuadre !== undefined) payload.encuadreImagen = encuadre;
 
       // La imagen anterior no se borra del bucket: el admin puede haberla elegido de la galería
       // existente, donde la misma URL puede estar referenciada por otra sección.

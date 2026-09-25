@@ -8,7 +8,7 @@ import { normalizeImageAsset, normalizeImageAssetArray, type ImageAssetType } fr
 import { asOptionalString } from "../utils/http";
 import { parseIdiomaQuery } from "../utils/idioma";
 import { TranslateService } from "../services/translate.service";
-import { encuadreParaImagen, parseEncuadreEntrada } from "./areaEncuadre";
+import { encuadreParaImagen, parseEncuadreEntrada } from "./encuadreImagen";
 
 import { sendErrorResponse } from "../utils/errors";
 const parseImagesToDelete = (body: unknown): string[] => {

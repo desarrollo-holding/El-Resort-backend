@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { encuadreImagenSchema, type EncuadreImagen } from "./shared/encuadreImagen";
 
 export type RetiroType = Document & {
   nombre: string;
@@ -13,6 +14,8 @@ export type RetiroType = Document & {
   idealPara: string;
   cuposMaximos: number;
   imagen: string;
+  /** Encuadre de `imagen` en la card. `null` (o ausente en retiros anteriores) = foto centrada. */
+  encuadreImagen?: EncuadreImagen | null;
   incluye: {
     yoga: boolean;
     comidasPorDia: number;
@@ -79,6 +82,10 @@ const RetiroSchema: Schema = new Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    encuadreImagen: {
+      type: encuadreImagenSchema,
+      default: null,
     },
     incluye: {
       yoga: { type: Boolean, required: true },

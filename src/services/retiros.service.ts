@@ -1,6 +1,7 @@
 import Retiro from "../models/Retiros";
 import { TranslateService } from "./translate.service";
 import type { Idioma } from "../utils/idioma";
+import type { EncuadreImagen } from "../models/shared/encuadreImagen";
 
 type CreateRetiroInput = {
   nombre: string;
@@ -11,6 +12,7 @@ type CreateRetiroInput = {
   idealPara: string;
   cuposMaximos: number;
   imagen: string;
+  encuadreImagen: EncuadreImagen | null;
   incluye: {
     yoga: boolean;
     comidasPorDia: number;
@@ -99,6 +101,11 @@ export const RetirosService = {
     if (typeof data.nombre === "string" && data.nombre !== current.nombre) patch.nombreEn = null;
     if (typeof data.descripcion === "string" && data.descripcion !== current.descripcion) patch.descripcionEn = null;
     if (typeof data.idealPara === "string" && data.idealPara !== current.idealPara) patch.idealParaEn = null;
+    // Un encuadre es de una foto concreta: si la foto cambia y no llegó uno nuevo, el anterior
+    // apuntaría a cualquier parte de la nueva.
+    if (typeof data.imagen === "string" && data.imagen !== current.imagen && data.encuadreImagen === undefined) {
+      patch.encuadreImagen = null;
+    }
     if (data.actividades) {
       // Se reemplaza el array entero: cualquier `actividadesDelDiaEn` que venga del cliente se
       // ignora (ya se borró arriba junto con el resto de `data`), así el subdocumento nuevo
