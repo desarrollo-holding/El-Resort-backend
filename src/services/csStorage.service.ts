@@ -79,8 +79,41 @@ export class GcsStorageService {
    */
   private static async uploadFlatObject(bucket: ReturnType<typeof GcsStorageService.getBucket>, fileName: string, buffer: Buffer, contentType: string) {
     const blob = bucket.file(fileName);
-    await blob.save(buffer, { resumable: false, metadata: { contentType, cacheControl: IMMUTABLE_CACHE_CONTROL } });
+    try {
+      await blob.save(buffer, { resumable: false, metadata: { contentType, cacheControl: IMMUTABLE_CACHE_CONTROL } });
+    } catch (error) {
+      this.logUploadFailure(bucket.name, fileName, error);
+      throw error;
+    }
     return { fileId: fileName, url: this.publicUrlFor(fileName) };
+  }
+
+  /**
+   * Lo que respondió GCS al rechazar una escritura, en UNA línea: código, estado HTTP, motivo
+   * (`errors[].reason`: `accountDisabled`, `rateLimitExceeded`, `forbidden`…) y mensaje, con el
+   * bucket y el objeto. Al admin le llega una categoría («Google Cloud Storage falló al procesar el
+   * archivo», ver utils/describeError.ts) y el volcado del error que hace después
+   * `sendErrorResponse` ocupa decenas de líneas (la respuesta HTTP entera), donde el código y el
+   * motivo quedan enterrados. Solo registra: quien llama propaga el error igual.
+   */
+  private static logUploadFailure(bucketName: string, objectKey: string, error: unknown) {
+    const e = (error && typeof error === 'object' ? error : {}) as {
+      code?: unknown;
+      status?: unknown;
+      message?: unknown;
+      errors?: unknown;
+      response?: { status?: unknown };
+    };
+    const motivos = Array.isArray(e.errors)
+      ? e.errors.map((item) => (item && typeof item === 'object' ? (item as { reason?: unknown }).reason : undefined)).filter(Boolean).join(',')
+      : '';
+    const http = e.response?.status ?? e.status;
+    const nombre = error instanceof Error ? error.name : typeof error;
+    const mensaje = typeof e.message === 'string' ? e.message : String(error);
+    console.error(
+      `[gcs] falló la subida bucket=${bucketName} objeto=${objectKey} error=${nombre}` +
+        ` code=${e.code ?? '-'} http=${http ?? '-'} motivo=${motivos || '-'} mensaje=${JSON.stringify(mensaje)}`
+    );
   }
 
   /**
@@ -134,6 +167,8 @@ export class GcsStorageService {
     const built = await buildVariants(fileBuffer, imageProfile);
     const storagePrefix = `${folder}/${timestamp}-${randomUUID()}`;
     const uploadedKeys: string[] = [];
+    // Para el log si GCS rechaza una escritura: cuál de los objetos de la carpeta falló.
+    let currentKey = `${storagePrefix}/orig.webp`;
 
     try {
       const origKey = `${storagePrefix}/orig.webp`;
@@ -143,6 +178,7 @@ export class GcsStorageService {
       const variants: ImageAssetType['variants'] = [];
       for (const variant of built.variants) {
         const variantKey = `${storagePrefix}/w${variant.width}.webp`;
+        currentKey = variantKey;
         await bucket.file(variantKey).save(variant.buffer, { resumable: false, metadata: { contentType: 'image/webp', cacheControl: IMMUTABLE_CACHE_CONTROL } });
         uploadedKeys.push(variantKey);
         variants.push({ width: variant.width, height: variant.height, format: variant.format, url: this.publicUrlFor(variantKey) });
@@ -158,6 +194,7 @@ export class GcsStorageService {
         variants,
       };
     } catch (error) {
+      this.logUploadFailure(bucket.name, currentKey, error);
       await Promise.allSettled(uploadedKeys.map((key) => bucket.file(key).delete()));
       throw error;
     }

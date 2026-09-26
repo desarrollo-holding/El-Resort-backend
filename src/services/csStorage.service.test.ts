@@ -6,6 +6,8 @@ const state = vi.hoisted(() => ({
   store: new Map<string, { buffer: Buffer; contentType?: string }>(),
   saveCounter: 0,
   failAfterNSaves: null as number | null,
+  /** Error que lanza el `save` que falla; si no, uno genérico. */
+  failWith: null as Error | null,
   deleteFilesCalls: [] as { prefix: string }[],
 }));
 
@@ -15,7 +17,7 @@ vi.mock("@google-cloud/storage", () => {
     async save(buffer: Buffer, opts: { metadata?: { contentType?: string } } = {}) {
       state.saveCounter += 1;
       if (state.failAfterNSaves !== null && state.saveCounter > state.failAfterNSaves) {
-        throw new Error(`Fallo simulado al subir ${this.key}`);
+        throw state.failWith ?? new Error(`Fallo simulado al subir ${this.key}`);
       }
       state.store.set(this.key, { buffer, contentType: opts.metadata?.contentType });
     }
@@ -25,6 +27,7 @@ vi.mock("@google-cloud/storage", () => {
   }
 
   class FakeBucket {
+    constructor(public name: string) {}
     file(key: string) {
       return new FakeFile(key);
     }
@@ -40,8 +43,8 @@ vi.mock("@google-cloud/storage", () => {
   }
 
   class FakeStorage {
-    bucket(_name: string) {
-      return new FakeBucket();
+    bucket(name: string) {
+      return new FakeBucket(name);
     }
   }
 
@@ -65,7 +68,51 @@ beforeEach(() => {
   state.store.clear();
   state.saveCounter = 0;
   state.failAfterNSaves = null;
+  state.failWith = null;
   state.deleteFilesCalls.length = 0;
+});
+
+describe("GcsStorageService.uploadFile — rechazo de GCS", () => {
+  /** Con la forma del `ApiError` de @google-cloud/storage: `code` HTTP y `errors[].reason`. */
+  const rechazoDeGcs = () =>
+    Object.assign(new Error("The billing account for the owning project is disabled in state closed"), {
+      name: "ApiError",
+      code: 403,
+      errors: [{ reason: "accountDisabled", message: "The billing account for the owning project is disabled in state closed" }],
+      response: { status: 403 },
+    });
+
+  it("registra en una línea el bucket, el objeto, el código, el motivo y el mensaje, y propaga el mismo error", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const error = rechazoDeGcs();
+    state.failAfterNSaves = 0;
+    state.failWith = error;
+
+    await expect(
+      GcsStorageService.uploadFile({ fileBuffer: await makeJpeg(), originalName: "fullday.jpg", mimeType: "image/jpeg", mediaKind: "image", imageProfile: "single" })
+    ).rejects.toBe(error);
+
+    const linea = log.mock.calls.map((args) => String(args[0])).find((texto) => texto.startsWith("[gcs]"));
+    expect(linea).toMatch(/^\[gcs\] falló la subida bucket=test-bucket objeto=fotosresort\/\d+-[0-9a-f-]{36}\/orig\.webp /);
+    expect(linea).toContain("error=ApiError code=403 http=403 motivo=accountDisabled");
+    expect(linea).toContain('mensaje="The billing account for the owning project is disabled in state closed"');
+    log.mockRestore();
+  });
+
+  it("también en los objetos planos (vídeo, SVG), con su clave", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    state.failAfterNSaves = 0;
+    state.failWith = rechazoDeGcs();
+
+    await expect(
+      GcsStorageService.uploadFile({ fileBuffer: Buffer.from("<svg/>"), originalName: "logo.svg", mimeType: "image/svg+xml", mediaKind: "image" })
+    ).rejects.toThrow();
+
+    expect(log.mock.calls.map((args) => String(args[0]))).toContainEqual(
+      expect.stringMatching(/^\[gcs\] falló la subida bucket=test-bucket objeto=fotosresort\/\d+_logo\.svg error=ApiError code=403/)
+    );
+    log.mockRestore();
+  });
 });
 
 describe("GcsStorageService.uploadFile — imagen rasterizable", () => {
